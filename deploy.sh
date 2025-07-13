@@ -7,7 +7,6 @@ set -e  # Exit on any error
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICES_DIR="$SCRIPT_DIR"
 LOG_FILE="$SCRIPT_DIR/deploy.log"
 
 # Colors for output
@@ -42,21 +41,6 @@ run_remote() {
     # ssh -i "$SSH_KEY_PATH" "$SSH_USER@$DROPLET_HOST" "$command"
     # ssh "$SSH_USER@$DROPLET_HOST" "$command"
     ssh debian-box "$command"
-}
-
-# git func
-get_or_update_repo() {
-    log "Navigating to $PROJECT_DIR and pulling latest code..."
-        run_remote "cd $PROJECT_DIR && \
-            if [ -d .git ]; then \
-                echo 'Git repo exists, pulling...'; \
-                git pull origin $GIT_BRANCH; \
-            else \
-                echo 'Git repo not found, init and cloning...'; \
-                git init && \
-                git remote add origin $GIT_REPO_URL && \
-                git pull origin $GIT_BRANCH; \
-            fi"
 }
 
 # Function to create Docker secrets from .env file
@@ -230,8 +214,19 @@ fi
 # Main function
 main() {
     # clone down/update the repo
-    get_or_update_repo
+     log "Navigating to $PROJECT_DIR and pulling latest code..."
+        run_remote "cd $PROJECT_DIR && \
+            if [ -d .git ]; then \
+                echo 'Git repo exists, pulling...'; \
+                git pull origin $GIT_BRANCH; \
+            else \
+                echo 'Git repo not found, init and cloning...'; \
+                git init && \
+                git remote add origin $GIT_REPO_URL && \
+                git pull origin $GIT_BRANCH; \
+            fi"
 
+    # parms passed into script
     local service_filter="$1"
     local action="${2:-deploy}"
 
