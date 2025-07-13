@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Configuration Variables for Initial Setup ---
-# These are internal to this setup script, don't change them unless you change paths on droplet
+# These are internal to this setup script, don't change them unless you change paths on server 
 PROJECT_DIR="/opt/sl-app" # Make sure this matches PROJECT_DIR in your deploy.sh
 
 # --- Error Handling ---
@@ -11,8 +11,11 @@ log_error() { echo -e "\n\033[1;31m!!! ERROR: $1 !!!\033[0m"; } # Red bold
 
 log_info "Starting initial setup..."
 
+# remove prev packages
 log_info "Uninstalling conflicting packages"
-for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
+for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do 
+    sudo apt-get remove $pkg 2>/dev/null || true
+done
 
 # 1. Update system and install basic prerequisites
 log_info "Updating system packages and installing curl, gnupg..."
@@ -41,31 +44,25 @@ sudo docker run hello-world || log_error "Docker 'hello-world' test failed. Chec
 
 # 3. Docker Swarm Initialization 
 log_info "Checking Docker Swarm status and initializing if necessary..."
-if [ "$(docker info --format '{{.Swarm.ControlAvailable}}')" = "true" ]; then
-    echo "This node is already a Docker Swarm manager. Skipping swarm initialization."
-else
-    # Retrieve the private IP for --advertise-addr
-    # This command uses the DigitalOcean metadata service, which is reliable.
-    PRIVATE_IP=$(curl -s http://169.254.169.254/metadata/v1/interfaces/private/0/ipv4/address)
 
-    if [ -z "$PRIVATE_IP" ]; then
-        echo "Warning: Could not retrieve private IP from DigitalOcean metadata. Attempting to use a common alternative for --advertise-addr."
-        # Fallback to general private IP detection or prompt if necessary
-        # This might pick up 127.0.0.1 or public IP if no private network is configured.
-        PRIVATE_IP=$(hostname -I | awk '{print $1}') # Tries to get any IP, often the primary one
-        if [ -z "$PRIVATE_IP" ]; then
-            echo "Error: Could not determine an IP for --advertise-addr. Please specify it manually or ensure private networking is configured."
-            exit 1
-        fi
+if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" = "active" ]; then
+    log_info "This node is already part of a Docker Swarm. Skipping swarm initialization."
+else
+    # Try to determine a usable IP address (non-loopback)
+    PRIVATE_IP=$(hostname -I | awk '{print $1}')
+
+    if [[ -z "$PRIVATE_IP" || "$PRIVATE_IP" == "127."* ]]; then
+        log_error "Could not determine a valid advertise IP. Please set it manually."
+        exit 1
     fi
 
-    echo "Initializing Docker Swarm with --advertise-addr $PRIVATE_IP..."
+    log_info "Initializing Docker Swarm with --advertise-addr $PRIVATE_IP..."
     docker swarm init --advertise-addr "$PRIVATE_IP"
 
     if [ $? -eq 0 ]; then
-        echo "Docker Swarm initialized successfully."
+        log_info "Docker Swarm initialized successfully."
     else
-        echo "Error: Docker Swarm initialization failed."
+        log_error "Docker Swarm initialization failed."
         exit 1
     fi
 fi
@@ -77,7 +74,7 @@ log_info "Configuring UFW firewall..."
 sudo apt install -y ufw # Ensure ufw is installed
 
 sudo ufw allow OpenSSH         # Keep SSH access
-sudo ufw allow 2222/tcp        # For SFTP via proFTP 
+# sudo ufw allow 2222/tcp        # For SFTP via proFTP 
 
 sudo ufw allow 2377/tcp        # Docker Swarm management port (for other managers)
 sudo ufw allow 7946/tcp        # for overlay network node discovery
@@ -95,9 +92,9 @@ mkdir -p "$PROJECT_DIR"
 
 log_info final manual step: create docker secrets
 log_info 'use ssh-agent for only 1 x prompt "eval "$(ssh-agent -s)"'
-log_info "ssh-add ~/.ssh/droplet"
-log_info "ssh -i ~/.ssh/id_do_droplet_1 root@$DROPLET_HOST "
+log_info "ssh-add ~/.ssh/key"
+log_info "ssh -i ~/.ssh/key user@$DROPLET_HOST "
 log_info "./deploy.sh"
 
 
-log_info "Initial Droplet setup completed!"
+log_info "Initial setup completed!"
