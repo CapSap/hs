@@ -167,6 +167,20 @@ cleanup_secrets() {
         done
     "
 }
+# Function to get list of available service names from server
+get_service_names() {
+    run_remote "
+        for dir in '$REMOTE_REPO_PATH'/*; do
+            if [[ -d \"\$dir\" ]]; then
+                service_name=\$(basename \"\$dir\")
+                if [[ \"\$service_name\" != \"scripts\" && \"\$service_name\" != \"docs\" && \"\$service_name\" != \".git\" ]]; then
+                    echo \"\$service_name\"
+                fi
+            fi
+        done
+    "
+}
+
 # --- Load Environment Variables from local .env file ---
 if [ -f "deploy.env" ]; then
     log "Loading configuration from deploy.env..."
