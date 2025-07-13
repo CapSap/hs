@@ -50,7 +50,7 @@ log_info "Note: You may need to log out and back in for docker group changes to 
 # 3. Docker Swarm Initialization 
 log_info "Checking Docker Swarm status and initializing if necessary..."
 
-if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" = "active" ]; then
+if [ "$(sudo docker info --format '{{.Swarm.LocalNodeState}}')" = "active" ]; then
     log_info "This node is already part of a Docker Swarm. Skipping swarm initialization."
 else
     # Try to determine a usable IP address (non-loopback)
@@ -62,9 +62,7 @@ else
     fi
 
     log_info "Initializing Docker Swarm with --advertise-addr $PRIVATE_IP..."
-    docker swarm init --advertise-addr "$PRIVATE_IP"
-
-    if [ $? -eq 0 ]; then
+    if sudo docker swarm init --advertise-addr "$PRIVATE_IP"; then
         log_info "Docker Swarm initialized successfully."
     else
         log_error "Docker Swarm initialization failed."
