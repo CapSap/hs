@@ -231,9 +231,12 @@ fi
 
 # Main function
 main() {
+    # clone down/update the repo
+    get_or_update_repo
+
     local service_filter="$1"
     local action="${2:-deploy}"
-    
+
     log "Starting Docker Swarm deployment script"
     
     # Initialize swarm if needed
