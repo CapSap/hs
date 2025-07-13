@@ -10,6 +10,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$SCRIPT_DIR"
 LOG_FILE="$SCRIPT_DIR/deploy.log"
 
+# --- Load Environment Variables from local .env file ---
+if [ -f "deploy.env" ]; then
+    log_info "Loading configuration from deploy.env..."
+    source "deploy.env"
+else
+    log_error "deploy.env not found! Please create it with your deployment variables."
+    exit 1
+f
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -32,6 +41,16 @@ warning() {
 
 info() {
     echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+# remote fun
+run_remote() {
+    local command="$@"
+    log_info "Executing remotely on $DROPLET_HOST: '$command'"
+    # using ssh-agent now so don't need to specific the key path
+    # ssh -i "$SSH_KEY_PATH" "$SSH_USER@$DROPLET_HOST" "$command"
+    # ssh "$SSH_USER@$DROPLET_HOST" "$command"
+    ssh debian-box "$command"
 }
 
 # Function to create Docker secrets from .env file
