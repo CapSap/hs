@@ -49,12 +49,12 @@ log_info "Note: You may need to log out and back in for docker group changes to 
 
 # 3. Docker Swarm Initialization 
 log_info "Checking Docker Swarm status and initializing if necessary..."
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
 if [ "$(sudo docker info --format '{{.Swarm.LocalNodeState}}')" = "active" ]; then
     log_info "This node is already part of a Docker Swarm. Skipping swarm initialization."
 else
     # Try to determine a usable IP address (non-loopback)
-    PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
     if [[ -z "$PRIVATE_IP" || "$PRIVATE_IP" == "127."* ]]; then
         log_error "Could not determine a valid advertise IP. Please set it manually."
