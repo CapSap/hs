@@ -133,25 +133,6 @@ deploy_service() {
     fi
 }
 
-# Function to list available services
-list_services() {
-    log "Available services:"
-    for dir in "$SERVICES_DIR"/*; do
-        if [[ -d "$dir" ]]; then
-            service_name=$(basename "$dir")
-            has_dockerfile=""
-            has_compose=""
-            has_env=""
-
-            [[ -f "$dir/Dockerfile" ]] && has_dockerfile="✓ Dockerfile"
-            [[ -f "$dir/docker-compose.yml" ]] && has_compose="✓ docker-compose.yml"
-            [[ -f "$dir/.env" ]] && has_env="✓ .env"
-
-            info "  $service_name: $has_dockerfile $has_compose $has_env"
-        fi
-    done
-}
-
 # Function to process a single service
 process_service() {
     local service_dir="$1"
