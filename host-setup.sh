@@ -2,7 +2,7 @@
 
 # --- Configuration Variables for Initial Setup ---
 # These are internal to this setup script, don't change them unless you change paths on server
-REMOTE_REPO_PATH="/opt/sl-app" # Make sure this matches REMOTE_REPO_PATH in your deploy.sh
+REMOTE_REPO_PATH="/opt/hs" # Make sure this matches REMOTE_REPO_PATH in your deploy.sh
 
 # --- Error Handling ---
 set -e
@@ -90,7 +90,7 @@ sudo ufw status verbose || log_error "Failed to show UFW status."
 
 # 4. Create Application's Project Directory
 log_info "Creating application project directory: $REMOTE_REPO_PATH"
-mkdir -p "$REMOTE_REPO_PATH"
+sudo mkdir -p "$REMOTE_REPO_PATH"
 # No need for chown if the commands are run as root; root will own directories it creates.
 
 log_info final manual step: create docker secrets
