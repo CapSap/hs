@@ -133,22 +133,6 @@ deploy_service() {
     fi
 }
 
-# Function to initialize Docker Swarm if not already initialized
-init_swarm() {
-    if ! run_remote "docker info --format '{{.Swarm.LocalNodeState}}'" | grep -q "active"; then
-        log "Initializing Docker Swarm"
-        run_remote "docker swarm init"
-        if [[ $? -eq 0 ]]; then
-            log "Docker Swarm initialized successfully"
-        else
-            error "Failed to initialize Docker Swarm"
-            return 1
-        fi
-    else
-        info "Docker Swarm already initialized"
-    fi
-}
-
 # Function to list available services
 list_services() {
     log "Available services:"
@@ -225,6 +209,20 @@ main() {
                 git remote add origin $GIT_REPO_URL && \
                 git pull origin $GIT_BRANCH; \
             fi"
+
+    # init the swarm if not already inited
+    if ! run_remote "docker info --format '{{.Swarm.LocalNodeState}}'" | grep -q "active"; then
+        log "Initializing Docker Swarm"
+        run_remote "docker swarm init"
+        if [[ $? -eq 0 ]]; then
+            log "Docker Swarm initialized successfully"
+        else
+            error "Failed to initialize Docker Swarm"
+            return 1
+        fi
+    else
+        info "Docker Swarm already initialized"
+    fi
 
     # parms passed into script
     local service_filter="$1"
