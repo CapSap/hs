@@ -229,7 +229,10 @@ main() {
 
     case "$action" in
     "list")
-        list_services
+        log "Available services:"
+        while IFS= read -r service_name; do
+            info "  $service_name"
+        done < <(get_service_names)
         exit 0
         ;;
     "cleanup")
