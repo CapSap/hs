@@ -260,40 +260,40 @@ main() {
 # Help function
 show_help() {
     cat << EOF
-Docker Swarm Deployment Script
+    Docker Swarm Deployment Script
 
-Usage: $0 [OPTIONS] [SERVICE_NAME] [ACTION]
+    Usage: $0 [OPTIONS] [SERVICE_NAME] [ACTION]
 
-ACTIONS:
-  deploy    Deploy services (default)
-  list      List available services
-  cleanup   Remove secrets for a specific service
+    ACTIONS:
+      deploy    Deploy services (default)
+      list      List available services
+      cleanup   Remove secrets for a specific service
 
-OPTIONS:
-  -h, --help    Show this help message
+    OPTIONS:
+      -h, --help    Show this help message
 
-EXAMPLES:
-  $0                    # Deploy all services
-  $0 immich             # Deploy only immich service
-  $0 list               # List all available services
-  $0 immich cleanup     # Cleanup secrets for immich service
+    EXAMPLES:
+      $0                    # Deploy all services
+      $0 immich             # Deploy only immich service
+      $0 list               # List all available services
+      $0 immich cleanup     # Cleanup secrets for immich service
 
-DIRECTORY STRUCTURE:
-  Your services should be organized like this:
-  
-  project/
-  ├── immich/
-  │   ├── docker-compose.yml
-  │   └── .env
-  ├── test-web-server/
-  │   ├── Dockerfile
-  │   └── .env
-  └── deploy.sh (this script)
+    DIRECTORY STRUCTURE:
+      Your services should be organized like this:
+      
+      project/
+      ├── immich/
+      │   ├── docker-compose.yml
+      │   └── .env
+      ├── test-web-server/
+      │   ├── Dockerfile
+      │   └── .env
+      └── deploy.sh (this script)
 
-The script will:
-1. Create Docker secrets from .env files
-2. Build images if Dockerfile exists
-3. Deploy services using docker-compose.yml via Docker Swarm
+    The script will:
+    1. Create Docker secrets from .env files
+    2. Build images if Dockerfile exists
+    3. Deploy services using docker-compose.yml via Docker Swarm
 
 EOF
 }
