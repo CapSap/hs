@@ -10,15 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$SCRIPT_DIR"
 LOG_FILE="$SCRIPT_DIR/deploy.log"
 
-# --- Load Environment Variables from local .env file ---
-if [ -f "deploy.env" ]; then
-    log "Loading configuration from deploy.env..."
-    source "deploy.env"
-else
-    error "deploy.env not found! Please create it with your deployment variables."
-    exit 1
-fi
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -51,6 +42,21 @@ run_remote() {
     # ssh -i "$SSH_KEY_PATH" "$SSH_USER@$DROPLET_HOST" "$command"
     # ssh "$SSH_USER@$DROPLET_HOST" "$command"
     ssh debian-box "$command"
+}
+
+# git func
+get_or_update_repo() {
+    log "Navigating to $PROJECT_DIR and pulling latest code..."
+        run_remote "cd $PROJECT_DIR && \
+            if [ -d .git ]; then \
+                echo 'Git repo exists, pulling...'; \
+                git pull origin $GIT_BRANCH; \
+            else \
+                echo 'Git repo not found, init and cloning...'; \
+                git init && \
+                git remote add origin $GIT_REPO_URL && \
+                git pull origin $GIT_BRANCH; \
+            fi"
 }
 
 # Function to create Docker secrets from .env file
@@ -206,10 +212,22 @@ cleanup_secrets() {
     
     # Remove secrets that start with service name
     run_remote "docker secret ls --format '{{.Name}}'" | grep "^${service_name}_" | while read -r secret; do
-        run_remote docker secret rm "$secret" 2>/dev/null || true
-        info "Removed old secret: $secret"
-    done
+            if docker secret rm \"\$secret\" 2>/dev/null; then
+                echo \"Successfully removed secret: \$secret\"
+            else
+                echo \"Failed to remove secret: \$secret\"
+            fi
+        done
+    "
 }
+    # --- Load Environment Variables from local .env file ---
+if [ -f "deploy.env" ]; then
+    log "Loading configuration from deploy.env..."
+    source "deploy.env"
+else
+    error "deploy.env not found! Please create it with your deployment variables."
+    exit 1
+fi
 
 # Main function
 main() {
