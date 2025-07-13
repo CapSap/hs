@@ -1,19 +1,19 @@
 #!/bin/bash
 
 # --- Configuration Variables for Initial Setup ---
-# These are internal to this setup script, don't change them unless you change paths on server 
-PROJECT_DIR="/opt/sl-app" # Make sure this matches PROJECT_DIR in your deploy.sh
+# These are internal to this setup script, don't change them unless you change paths on server
+REMOTE_REPO_PATH="/opt/sl-app" # Make sure this matches REMOTE_REPO_PATH in your deploy.sh
 
 # --- Error Handling ---
 set -e
-log_info() { echo -e "\n\033[1;34m=== $1 ===\033[0m"; } # Blue bold
+log_info() { echo -e "\n\033[1;34m=== $1 ===\033[0m"; }         # Blue bold
 log_error() { echo -e "\n\033[1;31m!!! ERROR: $1 !!!\033[0m"; } # Red bold
 
 log_info "Starting initial setup..."
 
 # remove prev packages
 log_info "Uninstalling conflicting packages"
-for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do 
+for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
     sudo apt-get remove $pkg 2>/dev/null || true
 done
 
@@ -32,9 +32,9 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 # Add the repository to Apt sources:
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" |
+    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 sudo apt-get update
 
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
@@ -47,7 +47,7 @@ log_info "Adding current user to docker group..."
 sudo usermod -aG docker $USER
 log_info "Note: You may need to log out and back in for docker group changes to take effect"
 
-# 3. Docker Swarm Initialization 
+# 3. Docker Swarm Initialization
 log_info "Checking Docker Swarm status and initializing if necessary..."
 PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
@@ -76,21 +76,21 @@ echo "Docker setup complete."
 log_info "Configuring UFW firewall..."
 sudo apt install -y ufw # Ensure ufw is installed
 
-sudo ufw allow OpenSSH         # Keep SSH access
-# sudo ufw allow 2222/tcp        # For SFTP via proFTP 
+sudo ufw allow OpenSSH # Keep SSH access
+# sudo ufw allow 2222/tcp        # For SFTP via proFTP
 
-sudo ufw allow 2377/tcp        # Docker Swarm management port (for other managers)
-sudo ufw allow 7946/tcp        # for overlay network node discovery
-sudo ufw allow 7946/udp        # for overlay network node discovery
-sudo ufw allow 4789/udp        # (configurable) for overlay network traffic  (VXLAN)
+sudo ufw allow 2377/tcp # Docker Swarm management port (for other managers)
+sudo ufw allow 7946/tcp # for overlay network node discovery
+sudo ufw allow 7946/udp # for overlay network node discovery
+sudo ufw allow 4789/udp # (configurable) for overlay network traffic  (VXLAN)
 
 log_info "Enabling UFW firewall. Confirm with 'y' if prompted."
 sudo ufw enable || log_error "Failed to enable UFW."
 sudo ufw status verbose || log_error "Failed to show UFW status."
 
 # 4. Create Application's Project Directory
-log_info "Creating application project directory: $PROJECT_DIR"
-mkdir -p "$PROJECT_DIR"
+log_info "Creating application project directory: $REMOTE_REPO_PATH"
+mkdir -p "$REMOTE_REPO_PATH"
 # No need for chown if the commands are run as root; root will own directories it creates.
 
 log_info final manual step: create docker secrets
@@ -98,6 +98,5 @@ log_info 'use ssh-agent for only 1 x prompt "eval "$(ssh-agent -s)"'
 log_info "ssh-add ~/.ssh/key"
 log_info "ssh -i ~/.ssh/key user@$PRIVATE_IP"
 log_info "./deploy.sh"
-
 
 log_info "Initial setup completed!"
