@@ -1,0 +1,74 @@
+version: '3.8' # Always use a recent version for Docker Swarm features
+
+services:
+  norm_tribute_web:
+    image: norm-tribute-web:latest
+    container_name: norm_tribute_web_container # Optional, for easier identification
+    ports:
+      - '3001:3001'
+
+    networks:
+      - norm_tribute_internal_network # For internal app communication if you add more services later
+
+    # 4. Environment Variables (if any, non-secret ones)
+    environment:
+      # Example: If your Node.js app consumes a non-secret env var
+      NODE_ENV: production
+
+    secrets:
+      - source: test-web-server_api_base_url
+        target: /run/secrets/api_base_url
+      - source: test-web-server_api_key_name
+        target: /run/secrets/api_key_name
+      - source: test-web-server_api_key_value
+        target: /run/secrets/api_key_value
+      - source: test-web-server_api_env
+        target: /run/secrets/api_env
+      - source: test-web-server_bearer_token
+        target: /run/secrets/bearer_token
+      - source: test-web-server_ap_key
+        target: /run/secrets/ap_key
+      - source: test-web-server_api_key_secret
+        target: /run/secrets/api_key_secret
+      - source: test-web-server_client_id
+        target: /run/secrets/client_id
+      - source: test-web-server_client_secret
+        target: /run/secrets/client_secret
+
+    # 6. Deployment Configuration (for Docker Swarm)
+    deploy:
+      replicas: 1 # Start with 1 replica for a simple web server
+      placement:
+        constraints:
+          - node.role == manager # Or 'node.role == worker' if you prefer it on a worker node
+            # For a single home server, 'manager' is often fine.
+      resources:
+        limits:
+          cpus: '0.2' # Allocate 20% of a CPU core
+          memory: 128M # Allocate 128MB RAM (adjust as needed)
+      restart_policy:
+        condition: on-failure # Restart if the container exits with a non-zero code
+
+# 8. Networks Definition (at the top-level)
+networks:
+  norm_tribute_internal_network:
+    driver: overlay # Overlay network for Swarm services to communicate
+secrets:
+  test-web-server_api_base_url:
+    external: true
+  test-web-server_api_key_name:
+    external: true
+  test-web-server_api_key_value:
+    external: true
+  test-web-server_api_env:
+    external: true
+  test-web-server_bearer_token:
+    external: true
+  test-web-server_ap_key:
+    external: true
+  test-web-server_api_key_secret:
+    external: true
+  test-web-server_client_id:
+    external: true
+  test-web-server_client_secret:
+    external: true
