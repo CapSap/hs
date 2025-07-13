@@ -96,7 +96,7 @@ mkdir -p "$PROJECT_DIR"
 log_info final manual step: create docker secrets
 log_info 'use ssh-agent for only 1 x prompt "eval "$(ssh-agent -s)"'
 log_info "ssh-add ~/.ssh/key"
-log_info "ssh -i ~/.ssh/key user@$DROPLET_HOST "
+log_info "ssh -i ~/.ssh/key user@$PRIVATE_IP"
 log_info "./deploy.sh"
 
 
