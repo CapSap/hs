@@ -77,7 +77,7 @@ create_secrets_from_env() {
             fi
 
             # Create secret
-            run_remote "echo '$value' | docker secret create '$secret_name' - 2>/dev/null"
+            echo '$value' | run_remote "docker secret create '$secret_name' - 2>/dev/null"
 
             if [[ $? -eq 0 ]]; then
                 info "Created secret: $secret_name"
@@ -93,12 +93,23 @@ build_image() {
     local service_dir="$1"
     local service_name="$2"
 
-    if run_remote "test -f '$service_dir/Dockerfile'"; then
-        log "Building image for $service_name"
-
-        # Build the image
+    # Check if docker-compose.yml has build context
+    if run_remote "test -f '$service_dir/docker-compose.yml'"; then
+        if run_remote "grep -q 'build:' '$service_dir/docker-compose.yml'"; then
+            log "Building image for $service_name using docker-compose build"
+            run_remote "cd '$service_dir' && docker-compose build"
+            if [[ $? -eq 0 ]]; then
+                log "Successfully built image: $service_name"
+            else
+                error "Failed to build image for $service_name"
+                return 1
+            fi
+        else
+            info "No build context in docker-compose.yml for $service_name, using pre-built images"
+        fi
+    elif run_remote "test -f '$service_dir/Dockerfile'"; then
+        log "Building image for $service_name from Dockerfile"
         run_remote "docker build -t '$service_name:latest' '$service_dir'"
-
         if [[ $? -eq 0 ]]; then
             log "Successfully built image: $service_name:latest"
         else
@@ -106,7 +117,7 @@ build_image() {
             return 1
         fi
     else
-        info "No Dockerfile found in $service_dir, skipping build"
+        info "No Dockerfile or build context found for $service_name, skipping build"
     fi
 }
 
@@ -193,8 +204,8 @@ fi
 # Main function
 main() {
     # clone down/update the repo
-    log "Navigating to $PROJECT_DIR and pulling latest code..."
-    run_remote "cd $PROJECT_DIR && \
+    log "Navigating to $REMOTE_REPO_PATH and pulling latest code..."
+    run_remote "cd $REMOTE_REPO_PATH && \
         if [ -d .git ]; then \
             echo 'Git repo exists, pulling...'; \
             git pull origin $GIT_BRANCH; \
@@ -224,8 +235,6 @@ main() {
     local action="${2:-deploy}"
 
     log "Starting Docker Swarm deployment script"
-    # Initialize swarm if needed
-    init_swarm
 
     case "$action" in
     "list")
@@ -257,24 +266,19 @@ main() {
     # Process services
     if [[ -n "$service_filter" ]]; then
         # Process specific service
-        service_dir="$SERVICES_DIR/$service_filter"
-        if [[ -d "$service_dir" ]]; then
-            process_service "$service_dir" "$service_filter"
+        if run_remote "[ -d '$REMOTE_REPO_PATH/$service_filter' ]"; then
+            process_service "$REMOTE_REPO_PATH/$service_filter" "$service_filter"
         else
-            error "Service directory not found: $service_dir"
+            error "Service directory not found on server: $REMOTE_REPO_PATH/$service_filter"
             exit 1
         fi
     else
         # Process all services
-        for dir in "$SERVICES_DIR"/*; do
-            if [[ -d "$dir" ]]; then
-                service_name=$(basename "$dir")
-                # Skip common non-service directories
-                if [[ "$service_name" != "scripts" && "$service_name" != "docs" && "$service_name" != ".git" ]]; then
-                    process_service "$dir" "$service_name"
-                fi
+        while IFS= read -r service_name; do
+            if [[ -n "$service_name" ]]; then
+                process_service "$REMOTE_REPO_PATH/$service_name" "$service_name"
             fi
-        done
+        done < <(get_service_names)
     fi
 
     log "Deployment completed!"
