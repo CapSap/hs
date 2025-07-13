@@ -3,7 +3,7 @@
 # Docker Swarm Deployment Script
 # This script creates secrets from .env files, builds images, and deploys services
 
-set -e  # Exit on any error
+set -e # Exit on any error
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,35 +47,35 @@ run_remote() {
 create_secrets_from_env() {
     local env_file="$1"
     local service_name="$2"
-    
+
     if [[ ! -f "$env_file" ]]; then
         warning "No .env file found at $env_file"
         return 0
     fi
-    
+
     log "Creating secrets from $env_file for service: $service_name"
-    
+
     # Read .env file and create secrets
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Skip empty lines and comments
         [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        
+
         # Extract key=value
         if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
             key="${BASH_REMATCH[1]}"
             value="${BASH_REMATCH[2]}"
-            
+
             # Remove quotes if present
             value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-            
-            secret_name="${service_name}_${key,,}"  # Convert to lowercase
-            
+
+            secret_name="${service_name}_${key,,}" # Convert to lowercase
+
             # Check if secret already exists
             if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
                 info "Secret $secret_name already exists, removing old one"
                 run_remote "docker secret rm '$secret_name' || true"
             fi
-            
+
             # Create secret
             run_remote "echo '$value' | docker secret create '$secret_name' - 2>/dev/null"
 
@@ -85,20 +85,20 @@ create_secrets_from_env() {
                 error "Failed to create secret: $secret_name"
             fi
         fi
-    done < "$env_file"
+    done <"$env_file"
 }
 
 # Function to build Docker image if Dockerfile exists
 build_image() {
     local service_dir="$1"
     local service_name="$2"
-    
+
     if run_remote "test -f '$service_dir/Dockerfile'"; then
         log "Building image for $service_name"
-        
+
         # Build the image
         run_remote "docker build -t '$service_name:latest' '$service_dir'"
-        
+
         if [[ $? -eq 0 ]]; then
             log "Successfully built image: $service_name:latest"
         else
@@ -114,20 +114,20 @@ build_image() {
 deploy_service() {
     local service_dir="$1"
     local service_name="$2"
-    
+
     if [[ -f "$service_dir/docker-compose.yml" ]]; then
         log "Deploying service: $service_name"
-        
+
         # Deploy the stack
         run_remote "cd $service_dir && docker stack deploy -c docker-compose.yml '$service_name'"
-        
+
         if [[ $? -eq 0 ]]; then
             log "Successfully deployed service: $service_name"
         else
             error "Failed to deploy service: $service_name"
             return 1
         fi
-        
+
     else
         warning "No docker-compose.yml found in $service_dir, skipping deployment"
     fi
@@ -142,11 +142,11 @@ list_services() {
             has_dockerfile=""
             has_compose=""
             has_env=""
-            
+
             [[ -f "$dir/Dockerfile" ]] && has_dockerfile="✓ Dockerfile"
             [[ -f "$dir/docker-compose.yml" ]] && has_compose="✓ docker-compose.yml"
             [[ -f "$dir/.env" ]] && has_env="✓ .env"
-            
+
             info "  $service_name: $has_dockerfile $has_compose $has_env"
         fi
     done
@@ -156,15 +156,15 @@ list_services() {
 process_service() {
     local service_dir="$1"
     local service_name="$2"
-    
+
     log "Processing service: $service_name"
-    
+
     # Create secrets from .env file
     create_secrets_from_env "$service_dir/.env" "$service_name"
-    
+
     # Build image if Dockerfile exists
     build_image "$service_dir" "$service_name"
-    
+
     # Deploy service
     deploy_service "$service_dir" "$service_name"
 }
@@ -172,9 +172,9 @@ process_service() {
 # Function to clean up old secrets
 cleanup_secrets() {
     local service_name="$1"
-    
+
     log "Cleaning up old secrets for service: $service_name"
-    
+
     # Remove secrets that start with service name
     run_remote "
         docker secret ls --format '{{.Name}}' | grep '^${service_name}_' | while read -r secret; do
@@ -186,7 +186,7 @@ cleanup_secrets() {
         done
     "
 }
-    # --- Load Environment Variables from local .env file ---
+# --- Load Environment Variables from local .env file ---
 if [ -f "deploy.env" ]; then
     log "Loading configuration from deploy.env..."
     source "deploy.env"
@@ -198,17 +198,17 @@ fi
 # Main function
 main() {
     # clone down/update the repo
-     log "Navigating to $PROJECT_DIR and pulling latest code..."
-        run_remote "cd $PROJECT_DIR && \
-            if [ -d .git ]; then \
-                echo 'Git repo exists, pulling...'; \
-                git pull origin $GIT_BRANCH; \
-            else \
-                echo 'Git repo not found, init and cloning...'; \
-                git init && \
-                git remote add origin $GIT_REPO_URL && \
-                git pull origin $GIT_BRANCH; \
-            fi"
+    log "Navigating to $PROJECT_DIR and pulling latest code..."
+    run_remote "cd $PROJECT_DIR && \
+        if [ -d .git ]; then \
+            echo 'Git repo exists, pulling...'; \
+            git pull origin $GIT_BRANCH; \
+        else \
+            echo 'Git repo not found, init and cloning...'; \
+            git init && \
+            git remote add origin $GIT_REPO_URL && \
+            git pull origin $GIT_BRANCH; \
+        fi"
 
     # init the swarm if not already inited
     if ! run_remote "docker info --format '{{.Swarm.LocalNodeState}}'" | grep -q "active"; then
@@ -229,34 +229,33 @@ main() {
     local action="${2:-deploy}"
 
     log "Starting Docker Swarm deployment script"
-    
     # Initialize swarm if needed
     init_swarm
-    
+
     case "$action" in
-        "list")
-            list_services
-            exit 0
-            ;;
-        "cleanup")
-            if [[ -n "$service_filter" ]]; then
-                cleanup_secrets "$service_filter"
-            else
-                error "Please specify a service name for cleanup"
-                exit 1
-            fi
-            exit 0
-            ;;
-        "deploy")
-            # Continue with deployment
-            ;;
-        *)
-            error "Unknown action: $action"
-            echo "Usage: $0 [service_name] [deploy|list|cleanup]"
+    "list")
+        list_services
+        exit 0
+        ;;
+    "cleanup")
+        if [[ -n "$service_filter" ]]; then
+            cleanup_secrets "$service_filter"
+        else
+            error "Please specify a service name for cleanup"
             exit 1
-            ;;
+        fi
+        exit 0
+        ;;
+    "deploy")
+        # Continue with deployment
+        ;;
+    *)
+        error "Unknown action: $action"
+        echo "Usage: $0 [service_name] [deploy|list|cleanup]"
+        exit 1
+        ;;
     esac
-    
+
     # Process services
     if [[ -n "$service_filter" ]]; then
         # Process specific service
@@ -279,9 +278,9 @@ main() {
             fi
         done
     fi
-    
+
     log "Deployment completed!"
-    
+
     # Show running services
     info "Current Docker Swarm services:"
     run_remote "docker service ls"
@@ -289,7 +288,7 @@ main() {
 
 # Help function
 show_help() {
-    cat << EOF
+    cat <<EOF
     Docker Swarm Deployment Script
 
     Usage: $0 [OPTIONS] [SERVICE_NAME] [ACTION]
