@@ -87,7 +87,7 @@ create_secrets_from_env() {
             secret_name="${service_name}_${key,,}"  # Convert to lowercase
             
             # Check if secret already exists
-            if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}$'"; then
+            if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
                 info "Secret $secret_name already exists, removing old one"
                 run_remote "docker secret rm '$secret_name' || true"
             fi
@@ -109,7 +109,7 @@ build_image() {
     local service_dir="$1"
     local service_name="$2"
     
-    if [[ -f "$service_dir/Dockerfile" ]]; then
+    if run_remote "test -f '$service_dir/Dockerfile'"; then
         log "Building image for $service_name"
         
         # Build the image
@@ -134,11 +134,8 @@ deploy_service() {
     if [[ -f "$service_dir/docker-compose.yml" ]]; then
         log "Deploying service: $service_name"
         
-        # Change to service directory
-        run_remote "cd $service_dir" 
-        
         # Deploy the stack
-        run_remote "docker stack deploy -c docker-compose.yml '$service_name'"
+        run_remote "cd $service_dir && docker stack deploy -c docker-compose.yml '$service_name'"
         
         if [[ $? -eq 0 ]]; then
             log "Successfully deployed service: $service_name"
@@ -211,7 +208,8 @@ cleanup_secrets() {
     log "Cleaning up old secrets for service: $service_name"
     
     # Remove secrets that start with service name
-    run_remote "docker secret ls --format '{{.Name}}'" | grep "^${service_name}_" | while read -r secret; do
+    run_remote "
+        docker secret ls --format '{{.Name}}' | grep '^${service_name}_' | while read -r secret; do
             if docker secret rm \"\$secret\" 2>/dev/null; then
                 echo \"Successfully removed secret: \$secret\"
             else
