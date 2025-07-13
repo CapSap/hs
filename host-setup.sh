@@ -42,6 +42,11 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 log_info "Verifying Docker installation..."
 sudo docker run hello-world || log_error "Docker 'hello-world' test failed. Check Docker installation."
 
+# Add after Docker installation
+log_info "Adding current user to docker group..."
+sudo usermod -aG docker $USER
+log_info "Note: You may need to log out and back in for docker group changes to take effect"
+
 # 3. Docker Swarm Initialization 
 log_info "Checking Docker Swarm status and initializing if necessary..."
 
