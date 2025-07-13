@@ -12,12 +12,12 @@ LOG_FILE="$SCRIPT_DIR/deploy.log"
 
 # --- Load Environment Variables from local .env file ---
 if [ -f "deploy.env" ]; then
-    log_info "Loading configuration from deploy.env..."
+    log "Loading configuration from deploy.env..."
     source "deploy.env"
 else
-    log_error "deploy.env not found! Please create it with your deployment variables."
+    error "deploy.env not found! Please create it with your deployment variables."
     exit 1
-f
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,7 +46,7 @@ info() {
 # remote fun
 run_remote() {
     local command="$@"
-    log_info "Executing remotely on $DROPLET_HOST: '$command'"
+    log "Executing remotely on $DROPLET_HOST: '$command'"
     # using ssh-agent now so don't need to specific the key path
     # ssh -i "$SSH_KEY_PATH" "$SSH_USER@$DROPLET_HOST" "$command"
     # ssh "$SSH_USER@$DROPLET_HOST" "$command"
@@ -81,13 +81,14 @@ create_secrets_from_env() {
             secret_name="${service_name}_${key,,}"  # Convert to lowercase
             
             # Check if secret already exists
-            if docker secret ls --format "{{.Name}}" | grep -q "^${secret_name}$"; then
+            if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}$'"; then
                 info "Secret $secret_name already exists, removing old one"
-                docker secret rm "$secret_name" || true
+                run_remote "docker secret rm '$secret_name' || true"
             fi
             
             # Create secret
-            echo "$value" | docker secret create "$secret_name" - 2>/dev/null
+            run_remote "echo '$value' | docker secret create '$secret_name' - 2>/dev/null"
+
             if [[ $? -eq 0 ]]; then
                 info "Created secret: $secret_name"
             else
@@ -106,7 +107,7 @@ build_image() {
         log "Building image for $service_name"
         
         # Build the image
-        docker build -t "$service_name:latest" "$service_dir"
+        run_remote "docker build -t '$service_name:latest' '$service_dir'"
         
         if [[ $? -eq 0 ]]; then
             log "Successfully built image: $service_name:latest"
@@ -128,10 +129,10 @@ deploy_service() {
         log "Deploying service: $service_name"
         
         # Change to service directory
-        cd "$service_dir"
+        run_remote "cd $service_dir" 
         
         # Deploy the stack
-        docker stack deploy -c docker-compose.yml "$service_name"
+        run_remote "docker stack deploy -c docker-compose.yml '$service_name'"
         
         if [[ $? -eq 0 ]]; then
             log "Successfully deployed service: $service_name"
@@ -140,8 +141,6 @@ deploy_service() {
             return 1
         fi
         
-        # Return to original directory
-        cd "$SCRIPT_DIR"
     else
         warning "No docker-compose.yml found in $service_dir, skipping deployment"
     fi
@@ -149,9 +148,9 @@ deploy_service() {
 
 # Function to initialize Docker Swarm if not already initialized
 init_swarm() {
-    if ! docker info --format '{{.Swarm.LocalNodeState}}' | grep -q "active"; then
+    if ! run_remote "docker info --format '{{.Swarm.LocalNodeState}}'" | grep -q "active"; then
         log "Initializing Docker Swarm"
-        docker swarm init
+        run_remote "docker swarm init"
         if [[ $? -eq 0 ]]; then
             log "Docker Swarm initialized successfully"
         else
@@ -206,8 +205,8 @@ cleanup_secrets() {
     log "Cleaning up old secrets for service: $service_name"
     
     # Remove secrets that start with service name
-    docker secret ls --format "{{.Name}}" | grep "^${service_name}_" | while read -r secret; do
-        docker secret rm "$secret" 2>/dev/null || true
+    run_remote "docker secret ls --format '{{.Name}}'" | grep "^${service_name}_" | while read -r secret; do
+        run_remote docker secret rm "$secret" 2>/dev/null || true
         info "Removed old secret: $secret"
     done
 }
@@ -273,7 +272,7 @@ main() {
     
     # Show running services
     info "Current Docker Swarm services:"
-    docker service ls
+    run_remote "docker service ls"
 }
 
 # Help function
