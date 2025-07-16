@@ -43,50 +43,7 @@ run_remote() {
     ssh debian-box "$command"
 }
 
-# Function to create Docker secrets from .env file
-create_secrets_from_env() {
-    local env_file="$1"
-    local service_name="$2"
 
-    if [[ ! -f "$env_file" ]]; then
-        warning "No .env file found at $env_file"
-        return 0
-    fi
-
-    log "Creating secrets from $env_file for service: $service_name"
-
-    # Read .env file and create secrets
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Skip empty lines and comments
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-
-        # Extract key=value
-        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
-            key="${BASH_REMATCH[1]}"
-            value="${BASH_REMATCH[2]}"
-
-            # Remove quotes if present
-            value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-
-            secret_name="${service_name}_${key,,}" # Convert to lowercase
-
-            # Check if secret already exists
-            if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
-                info "Secret $secret_name already exists, removing old one"
-                run_remote "docker secret rm '$secret_name' || true"
-            fi
-
-            # Create secret
-            echo '$value' | run_remote "docker secret create '$secret_name' - 2>/dev/null"
-
-            if [[ $? -eq 0 ]]; then
-                info "Created secret: $secret_name"
-            else
-                error "Failed to create secret: $secret_name"
-            fi
-        fi
-    done <"$env_file"
-}
 
 # Function to build Docker image if Dockerfile exists
 build_image() {
@@ -178,19 +135,6 @@ cleanup_secrets() {
         done
     "
 }
-# Function to get list of available service names from server
-get_service_names() {
-    run_remote "
-        for dir in '$REMOTE_REPO_PATH'/*; do
-            if [[ -d \"\$dir\" ]]; then
-                service_name=\$(basename \"\$dir\")
-                if [[ \"\$service_name\" != \"scripts\" && \"\$service_name\" != \"docs\" && \"\$service_name\" != \".git\" ]]; then
-                    echo \"\$service_name\"
-                fi
-            fi
-        done
-    "
-}
 
 # --- Load Environment Variables from local .env file ---
 if [ -f "deploy.env" ]; then
@@ -230,110 +174,44 @@ main() {
         info "Docker Swarm already initialized"
     fi
 
-    # parms passed into script
-    local service_filter="$1"
-    local action="${2:-deploy}"
+    # get a list of services on server
+    remote_dirs=$(run_remote " find '$REMOTE_REPO_PATH' -maxdepth 1 -type d -not -path '$REMOTE_REPO_PATH' -printf '%f\n' | \ grep -v -E '^(scripts|docs|\.git)$' ")
 
-    log "Starting Docker Swarm deployment script"
+    # for each remote dir add local .env file to docker
+   for dir in $remote_dirs 
+   do
+   # Read .env file and create secrets
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
 
-    case "$action" in
-    "list")
-        log "Available services:"
-        while IFS= read -r service_name; do
-            info "  $service_name"
-        done < <(get_service_names)
-        exit 0
-        ;;
-    "cleanup")
-        if [[ -n "$service_filter" ]]; then
-            cleanup_secrets "$service_filter"
-        else
-            error "Please specify a service name for cleanup"
-            exit 1
-        fi
-        exit 0
-        ;;
-    "deploy")
-        # Continue with deployment
-        ;;
-    *)
-        error "Unknown action: $action"
-        echo "Usage: $0 [service_name] [deploy|list|cleanup]"
-        exit 1
-        ;;
-    esac
+        # Extract key=value
+        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
 
-    # Process services
-    if [[ -n "$service_filter" ]]; then
-        # Process specific service
-        if run_remote "[ -d '$REMOTE_REPO_PATH/$service_filter' ]"; then
-            process_service "$REMOTE_REPO_PATH/$service_filter" "$service_filter"
-        else
-            error "Service directory not found on server: $REMOTE_REPO_PATH/$service_filter"
-            exit 1
-        fi
-    else
-        # Process all services
-        while IFS= read -r service_name; do
-            if [[ -n "$service_name" ]]; then
-                process_service "$REMOTE_REPO_PATH/$service_name" "$service_name"
+            # Remove quotes if present
+            value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+
+            secret_name="${service_name}_${key,,}" # Convert to lowercase
+
+            # Check if secret already exists
+            if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
+                info "Secret $secret_name already exists, removing old one"
+                run_remote "docker secret rm '$secret_name' || true"
             fi
-        done < <(get_service_names)
-    fi
 
-    log "Deployment completed!"
+            # Create secret
+            echo '$value' | run_remote "docker secret create '$secret_name' - 2>/dev/null"
 
-    # Show running services
-    info "Current Docker Swarm services:"
-    run_remote "docker service ls"
+            if [[ $? -eq 0 ]]; then
+                info "Created secret: $secret_name"
+            else
+                error "Failed to create secret: $secret_name"
+            fi
+        fi
+    done <"$env_file"
+    
+
+    echo $remote_dirs
 }
-
-# Help function
-show_help() {
-    cat <<EOF
-    Docker Swarm Deployment Script
-
-    Usage: $0 [OPTIONS] [SERVICE_NAME] [ACTION]
-
-    ACTIONS:
-      deploy    Deploy services (default)
-      list      List available services
-      cleanup   Remove secrets for a specific service
-
-    OPTIONS:
-      -h, --help    Show this help message
-
-    EXAMPLES:
-      $0                    # Deploy all services
-      $0 immich             # Deploy only immich service
-      $0 list               # List all available services
-      $0 immich cleanup     # Cleanup secrets for immich service
-
-    DIRECTORY STRUCTURE:
-      Your services should be organized like this:
-      
-      project/
-      ├── immich/
-      │   ├── docker-compose.yml
-      │   └── .env
-      ├── test-web-server/
-      │   ├── Dockerfile
-      │   └── .env
-      └── deploy.sh (this script)
-
-    The script will:
-    1. Create Docker secrets from .env files
-    2. Build images if Dockerfile exists
-    3. Deploy services using docker-compose.yml via Docker Swarm
-
-EOF
-}
-
-# Parse command line arguments
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    show_help
-    exit 0
-fi
-
-# Run main function with arguments
-main "$@"
