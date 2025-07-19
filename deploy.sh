@@ -18,19 +18,19 @@ NC='\033[0m' # No Color
 
 # Logging function
 log() {
-    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
+    printf "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
 }
 
 error() {
-    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
+    printf "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
 }
 
 warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1" | tee -a "$LOG_FILE"
+    printf "${YELLOW}[WARNING]${NC} $1" | tee -a "$LOG_FILE"
 }
 
 info() {
-    echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
+    printf "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
 }
 
 # remote fun
