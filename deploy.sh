@@ -42,6 +42,12 @@ run_remote() {
     # ssh "$SSH_USER@$DROPLET_HOST" "$command"
     ssh debian-box "$command"
 }
+
+run_remote_silent() {
+    local command="$@"
+    ssh debian-box "$command"
+}
+
 # --- Load Environment Variables from local .env file ---
 if [ -f "deploy.env" ]; then
     log "Loading configuration from deploy.env..."
@@ -81,43 +87,68 @@ main() {
     fi
 
     # get a list of services on server
-    remote_dirs=$(run_remote " find '$REMOTE_REPO_PATH' -maxdepth 1 -type d -not -path '$REMOTE_REPO_PATH' -printf '%f\n' | \ grep -v -E '^(scripts|docs|\.git)$' ")
+    all_dirs=$(run_remote_silent "find '$REMOTE_REPO_PATH' -maxdepth 1 -type d -not -path '$REMOTE_REPO_PATH'")
+    remote_dirs=$(echo "$all_dirs" | sed 's|.*/||' | grep -v -E '^(scripts|docs|\.git)$')
 
     # for each remote dir add local .env file to docker
+
     for dir in $remote_dirs; do
+        echo "  attempting to add secret for '$dir' "
         (
             # cd into local dir, read the secret, and the run the remote command to input the secret
             cd "$dir"
+            # Check if .env file exists
+            if [[ ! -f ".env" ]]; then
+                echo "No .env file found in '$dir', skipping..."
+                exit 0 # Exit the subshell, continue with next directory
+            fi
 
-            # Read .env file and create secrets
+            # Arrays to store keys and values
+            declare -a keys=()
+            declare -a values=()
+
+            # Read .env file
             while IFS= read -r line || [[ -n "$line" ]]; do
                 # Skip empty lines and comments
                 [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
                 # Extract key=value
+
                 if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
                     key="${BASH_REMATCH[1]}"
                     value="${BASH_REMATCH[2]}"
 
+                    echo "    key found '$key'"
                     # Remove quotes if present
                     value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-
                     secret_name="${dir}_${key,,}" # Convert to lowercase
 
-                    # Check if secret already exists
-                    if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
-                        info "Secret $secret_name already exists, removing old one"
-                        run_remote "docker secret rm '$secret_name' || true"
-                    fi
-                    # Create secret
-                    echo "$value" | run_remote "docker secret create '$secret_name' - 2>/dev/null"
+                    # Add to arrays
+                    keys+=("$key")
+                    values+=("$value")
 
-                    if [[ $? -eq 0 ]]; then
-                        info "Created secret: $secret_name"
-                    else
-                        error "Failed to create secret: $secret_name"
-                    fi
                 fi
             done <".env"
+            # create each secret
+            for i in "${!keys[@]}"; do
+                key="${keys[$i]}"
+                value="${values[$i]}"
+
+                secret_name="${dir}_${key,,}" # Convert to lowercase
+                # Check if secret already exists
+                if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
+                    info "Secret $secret_name already exists, removing old one"
+                    run_remote "docker secret rm '$secret_name' || true"
+                fi
+                # Create secret
+                echo "$value" | run_remote "docker secret create '$secret_name' - 2>/dev/null"
+
+                if [[ $? -eq 0 ]]; then
+                    info "Created secret: $secret_name"
+                else
+                    error "Failed to create secret: $secret_name"
+                fi
+
+            done
 
         )
 
@@ -128,7 +159,7 @@ main() {
         full_path="$REMOTE_REPO_PATH/$dir"
         if run_remote "test -f '$full_path/Dockerfile'"; then
             log "Building $dir from Dockerfile"
-            run_remote "cd '$full_path' && docker build -t '$dir:latest' '$dir'" || {
+            run_remote "docker build -t '$dir:latest' '$full_path'" || {
                 error "Build failed: $dir"
                 return 1
             }
@@ -162,3 +193,5 @@ main() {
 
     info "all done"
 }
+
+main
