@@ -2,7 +2,7 @@ version: '3.8' # Always use a recent version for Docker Swarm features
 
 services:
   norm_tribute_web:
-    image: norm-tribute-web:latest
+    image: test-web-server:latest
     container_name: norm_tribute_web_container # Optional, for easier identification
     ports:
       - '3001:3001'
