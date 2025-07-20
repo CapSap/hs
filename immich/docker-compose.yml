@@ -71,3 +71,19 @@ services:
 
 volumes:
   model-cache:
+
+secrets:
+  immich_upload_location:
+    external: true
+  immich_db_data_location:
+    external: true
+  immich_tz:
+    external: true
+  immich_version:
+    external: true
+  immich_db_password:
+    external: true
+  immich_db_username:
+    external: true
+  immich_db_name:
+    external: true
