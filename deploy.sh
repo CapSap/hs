@@ -134,13 +134,20 @@ main() {
                 value="${values[$i]}"
 
                 secret_name="${dir}_${key,,}" # Convert to lowercase
-                # Check if secret already exists
-                if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
-                    info "Secret $secret_name already exists, removing old one"
+
+                # check if secret is in use
+                if run_remote "docker service ls --quiet | xargs -r docker service inspect | grep -q '\"SecretName\": \"${secret_name}\"' || docker service ls --quiet | xargs -r docker service inspect | grep -q '\"Source\": \"${secret_name}\"'"; then
+                    info "Secret $secret_name is in use by services, skipping removal"
+                else
+                    info "Secret $secret_name not in use"
+                    # Check if secret exists
+                    if run_remote "docker secret ls --format '{{.Name}}' | grep -q '^${secret_name}\$'"; then
+                        info "Secret $secret_name already exists, removing old one"
+                    fi
                     run_remote "docker secret rm '$secret_name' || true"
+                    # Create secret
+                    echo "$value" | run_remote "docker secret create '$secret_name' - 2>/dev/null"
                 fi
-                # Create secret
-                echo "$value" | run_remote "docker secret create '$secret_name' - 2>/dev/null"
 
                 if [[ $? -eq 0 ]]; then
                     info "Created secret: $secret_name"
