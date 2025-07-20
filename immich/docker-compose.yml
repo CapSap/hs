@@ -65,7 +65,7 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/immich_db_password
       POSTGRES_USER_FILE: /run/secrets/immich_db_username # Use secret instead
-      POSTGRES_DB_FILE: /run/secrets/immich_db_name # Use secret instead
+      POSTGRES_DB_FILE: /run/secrets/immich_db_database_name # Use secret instead
       POSTGRES_INITDB_ARGS: '--data-checksums'
       # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
       # DB_STORAGE_TYPE: 'HDD'
@@ -77,7 +77,7 @@ services:
     secrets:
       - immich_db_password
       - immich_db_username
-      - immich_db_name
+      - immich_db_database_name
 
 volumes:
   model-cache:
@@ -89,5 +89,5 @@ secrets:
     external: true
   immich_db_username:
     external: true
-  immich_db_name:
+  immich_db_database_name:
     external: true
