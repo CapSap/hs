@@ -1,0 +1,47 @@
+version: '3.7'
+
+services:
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    networks:
+      - management_net
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 8090:8090
+    volumes:
+      - /mnt/glustermount/data/beszel_data:/beszel_data
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - 'traefik.enable=true'
+        - 'traefik.http.services.beszel-agent.loadbalancer.server.port=8090'
+
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - beszel_beszel
+    ports:
+      - 45876:45876
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      PORT: 45876
+      # Do not remove quotes around the key
+      KEY: 'UPDATE WITH YOUR PUBLIC KEY (copy from "Add system" dialog)'
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - 'traefik.enable=true'
+        - 'traefik.http.services.beszel-agent.loadbalancer.server.port=45876'
+
+networks:
+  management_net:
+    external: true
