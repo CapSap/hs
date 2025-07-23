@@ -31,8 +31,15 @@ services:
       disable: false
     secrets:
       - immich_tz
+      - immich_db_password
+      - immich_db_username
+      - immich_db_database_name
     environment:
       - TZ_FILE=/run/secrets/immich_tz
+      - DB_HOSTNAME=database
+      - DB_PASSWORD_FILE=/run/secrets/immich_db_password
+      - DB_USERNAME_FILE=/run/secrets/immich_db_username
+      - DB_DATABASE_NAME_FILE=/run/secrets/immich_db_database_name
 
   immich-machine-learning:
     container_name: immich_machine_learning
