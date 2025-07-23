@@ -76,6 +76,9 @@ main() {
     if ! run_remote "docker info --format '{{.Swarm.LocalNodeState}}'" | grep -q "active"; then
         log "Initializing Docker Swarm"
         run_remote "docker swarm init"
+        # create network that is used by beszel
+        run_remote "docker network create --driver overlay --attachable management_net"
+
         if [[ $? -eq 0 ]]; then
             log "Docker Swarm initialized successfully"
         else
@@ -91,7 +94,6 @@ main() {
     remote_dirs=$(echo "$all_dirs" | sed 's|.*/||' | grep -v -E '^(scripts|docs|\.git)$')
 
     # for each remote dir add local .env file to docker
-
     for dir in $remote_dirs; do
         echo "  attempting to add secret for '$dir' "
         (
