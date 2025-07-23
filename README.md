@@ -25,7 +25,7 @@ https://github.com/zilexa/Homeserver
 
 # setting up host machine
 
-1.  install debian on host machine via usb iso
+1.  install debian on host machine via usb iso. using LVM
     hostname = shelaria-s
     domain name?
     username = shelaria
@@ -43,3 +43,9 @@ https://github.com/zilexa/Homeserver
 and i should disable ssh with password now. DONE
 
 3.  install docker via a script
+
+4.  deploy via script
+    the deploy script is finnally working!
+
+5.  now what?
+    5a. try and get immich actually working
