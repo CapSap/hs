@@ -200,6 +200,8 @@ main() {
 
     done
 
+    # make the dirs for bindmounts
+    run_remote "mkdir -p ~/immich/library ~/immich/postgres"
     info "all done"
 }
 

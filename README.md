@@ -49,3 +49,5 @@ and i should disable ssh with password now. DONE
 
 5.  now what?
     5a. try and get immich actually working
+    next bottleneck is that /var has only 7. something gb and its where the docker volumes are stored. need lots of storage there.
+    im deciding to use bind mounts
