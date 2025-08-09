@@ -2,7 +2,7 @@
 
 # --- Configuration Variables for Initial Setup ---
 # These are internal to this setup script, don't change them unless you change paths on server
-REMOTE_REPO_PATH="/home/shelaria/hs" # Make sure this matches REMOTE_REPO_PATH in your deploy.sh
+REMOTE_REPO_PATH="/home/shelaria/box" # Make sure this matches REMOTE_REPO_PATH in your deploy.sh
 
 # --- Error Handling ---
 set -e
