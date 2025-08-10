@@ -19,7 +19,7 @@ services:
     volumes:
       # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
       # - ${UPLOAD_LOCATION}:/usr/src/app/upload
-      - /home/shelaria/immich/library:/usr/src/app/upload
+      - immich_library:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     ports:
       - '2283:2283'
@@ -80,7 +80,7 @@ services:
       # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
       # - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
       # - home/shelaria/immich/postgres:/var/lib/postgresql/data
-      - /home/shelaria/immich/postgres:/var/lib/postgresql/data
+      - immich_database:/var/lib/postgresql/data
     restart: always
     secrets:
       - immich_db_password
@@ -89,6 +89,8 @@ services:
 
 volumes:
   model-cache:
+  immich-library:
+  immich_database:
 
 secrets:
   immich_tz:
