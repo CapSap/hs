@@ -4,7 +4,7 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - /home/shelaria/box/homepage/my-defaults:/app/defaults
+      - /home/shelaria/box/homepage/my-defaults:/tmp/my-defaults
       - homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations
     environment:
@@ -12,7 +12,7 @@ services:
     command: |
       bash -c "
         # Copy defaults from mounted directory
-        cp -r /app/defaults/* /app/config/ || true
+        cp -r /tmp/my-defaults/* /app/config/ || true
       "
     deploy:
       placement:
