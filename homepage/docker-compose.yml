@@ -13,8 +13,6 @@ services:
       bash -c "
         # Copy defaults from mounted directory
         cp -r /app/defaults/* /app/config/ || true
-        # Start the original application
-        exec node server.js
       "
     deploy:
       placement:
