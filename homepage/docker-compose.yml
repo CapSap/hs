@@ -4,12 +4,21 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - /home/shelaria/box/homepage:/app/config
+      - /home/shelaria/box/homepage/my-defaults:/app/defaults
+      - homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations
     environment:
       HOMEPAGE_ALLOWED_HOSTS: 192.168.1.118:3000,gethomepage.dev # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+    command: |
+      bash -c "
+        # Copy defaults from mounted directory
+        cp -r /app/defaults/* /app/config/ || true
+        # Start the original application
+        exec node server.js
+      "
     deploy:
       placement:
         constraints:
           - node.role == manager
-    command:
+  volumes:
+    homepage-config:
