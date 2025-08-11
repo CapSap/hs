@@ -4,7 +4,7 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - homepage-config:/app/config # Make sure your local config directory exists
+      - /home/shelaria/box/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations
     environment:
       HOMEPAGE_ALLOWED_HOSTS: 192.168.1.118:3000,gethomepage.dev # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
@@ -12,5 +12,3 @@ services:
       placement:
         constraints:
           - node.role == manager
-volumes:
-  homepage-config:
