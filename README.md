@@ -63,3 +63,23 @@ and i should disable ssh with password now. DONE
 ## Troubles with immich- bind mounts or docker volumes?
 
 Before running anything I had to choose between docker volumnes and bind mounts. In the end I chose docker volumnes, and ran into an issue where i had only allocated 7gb to the /var partition and it filled up and things stopped working. I learned that bind mounts and volumes are really not that different and that i think id prefer these volumes to be manged by docker.
+
+# trying to get a backup service up and running
+
+so ive got photos on immich- next step is backing them up
+
+i think ive decided to have some other backup service,
+
+10/feb/26
+copying over the files is done,
+next step is deleting existing docker volume data
+rewriting the docker-compose file so that i use the bind mounts instead of docker volumes
+and is that the only place i need to config bind mounts?
+and i also need to sort out permissions for /mnt files
+
+and upon relfection i dont actually understand the commands i ran to get the thing running
+sudo mount /dev/sdb1 /mnt/hdd/
+sudo umount /mnt/hdd
+sudo mount -a
+
+and i dont understand the permission stuff. ive got lots of tabs open to research /mnt and some chats about user group and permissions
