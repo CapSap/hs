@@ -71,7 +71,9 @@ so ive got photos on immich- next step is backing them up
 i think ive decided to have some other backup service,
 
 10/feb/26
-copying over the files is done,
+so the smart test has completed, i created the /mnt/hdd dir and did some mounting (and i dont understand fully)
+copying over the files is done from docker volume to mounted /mnt/hdd,
+
 next step is deleting existing docker volume data
 rewriting the docker-compose file so that i use the bind mounts instead of docker volumes
 and is that the only place i need to config bind mounts?
@@ -83,3 +85,6 @@ sudo umount /mnt/hdd
 sudo mount -a
 
 and i dont understand the permission stuff. ive got lots of tabs open to research /mnt and some chats about user group and permissions
+
+11/feb
+trying to clear up the permissions and better understand.
