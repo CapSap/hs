@@ -128,3 +128,18 @@ Was looking into a separate backup service but didn't decide on one.
 - What backup tool/service to use?
 - Where to back up to? (second drive, cloud, offsite?)
 - What needs backing up? (photos, postgres DB, config?)
+
+# reconsidering architecture / software choices
+
+so far ive decied to use debian on bare metal, and running docker swarm. and each service will be within a docker container, and one docker service per service
+
+## why docker swarm over docker compose?
+
+chose swarm so secrets are injected at runtime via /run/secrets/ rather than sitting in env vars or on disk. the container process reads them as files.
+
+**questions to help decide if this is worth the complexity:**
+
+- am i planning to add more nodes? if yes, swarm makes more sense long-term
+- is the deploy script complexity bothering me? the secret management loop is where most of the friction lives
+- would i rather keep the security property and simplify other parts? (e.g. docker compose with an external secret backend could give similar isolation without full swarm)
+- who am i protecting the secrets from? on a single-node homeserver on my local network, the threat model is different from a production server. the secrets are already in .env files on my desktop, and if someone has access to the box they can docker inspect the service anyway
