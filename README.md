@@ -96,3 +96,16 @@ and i dont understand the permission stuff. ive got lots of tabs open to researc
 - [ ] pick *one* monitoring gui and actually get it healthy. portainer and beszel are both deployed but neither is fully working. beszel needs a real `KEY` value in `beszel/docker-compose.yml:37` (currently a placeholder string). both probably need their ports opened in ufw — `host-setup.sh` only opens ssh + swarm ports.
 - [ ] add a `./deploy.sh <servicename>` mode so adding a new service only touches that one stack. ~10 lines. would shrink the "scary to add a service" feeling a lot.
 - [ ] note for future-me: `deploy.sh:141-152` silently *skips* updating any secret currently in use by a service. editing an `.env` value will not propagate to a running service. fix or document.
+
+## summary of the conversation that produced this list (april 2026)
+
+came back to this project after a long drift, feeling stretched and uneasy and not sure whether to refactor. talked it through and landed on:
+
+- the drift wasn't laziness or the project being broken. it was hitting a real fork in the road (the disk filled up, new hdds got installed, and now there are real decisions to make about disk layout / bind mounts / backups). that's the project doing its job — i've reached the edge of what i currently know, same as every other thing in this repo was once at that edge.
+- the unease about `deploy.sh` is mostly an *observability* problem ("i don't know what's running on the server"), not a deploy problem. the script itself is more conservative than it looks: each service dir is its own `docker stack`, stacks are isolated, and `docker stack deploy` is idempotent + does rolling updates. adding a new service dir literally cannot touch the running ones unless i edit their files in the same commit.
+- the *real* blocker is storage, not deploys or monitoring. don't refactor anything right now. the deploy script works. nothing in this repo needs rewriting before the storage decisions are made.
+- the storage problem is actually three sub-decisions: (1) disk layout + fstab, (2) finishing the immich named-volumes → bind-mounts migration that's already half-done, (3) bidirectional backups between desktop and server. (3) is not blocking (1) and (2).
+- discovered while talking: the immich compose file was never updated when i decided to switch to bind mounts (`deploy.sh` even creates the dirs, but `immich/docker-compose.yml` still declares named volumes). so the migration is sitting in a half-state.
+- discovered while talking: portainer and beszel are both deployed-ish but neither is fully working. beszel has a placeholder `KEY` string in its compose. neither has firewall ports opened in `host-setup.sh`. one healthy gui would fix most of the "i don't know what's running" anxiety.
+- the smallest possible next step, that commits to nothing: ssh in and run `lsblk`, `blkid`, `df -h`, `findmnt`. ground truth about what's actually installed before planning anything.
+- chose swarm originally because it was the *minimum* tool that gave real secrets management without going to k8s. that choice still stands. the goal of this whole project is learning linux + servers, so prefer the simplest path that teaches the fundamentals (ext4 + uuid fstab + bind mounts + rsync) over fancier abstractions (zfs pools, volume drivers, syncthing) unless there's a reason.
