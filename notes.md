@@ -89,7 +89,7 @@ and i dont understand the permission stuff. ive got lots of tabs open to researc
 11/feb
 trying to clear up the permissions and better understand.
 
-# Working Notes
+# progress summary
 
 ## Current status (as of Feb 2026, project stalled)
 
@@ -118,14 +118,6 @@ Immich data (photos + postgres) to the new HDD.
 - Update immich/docker-compose.yml to use bind mounts instead of volumes
 - Delete old Docker volume data once bind mounts are confirmed working
 
-**Commands used (not fully understood yet):**
-
-```bash
-sudo mount /dev/sdb1 /mnt/hdd/
-sudo umount /mnt/hdd
-sudo mount -a
-```
-
 ## Backup strategy
 
 Photos are on Immich but there's no backup of the Immich data itself yet.
@@ -136,13 +128,3 @@ Was looking into a separate backup service but didn't decide on one.
 - What backup tool/service to use?
 - Where to back up to? (second drive, cloud, offsite?)
 - What needs backing up? (photos, postgres DB, config?)
-
-## 3D printer controller
-
-Not started yet.
-
-**Questions:**
-
-- Which software? (OctoPrint, Klipper, etc.)
-- How to connect the printer to the server?
-- Run as another Docker service or bare metal?
