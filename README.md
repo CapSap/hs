@@ -8,6 +8,7 @@ A Debian home server running Docker Swarm, managed via a deploy script.
 - Backup immich and desktop
 - Install a 3D printer controller
 - Learn Linux server administration along the way
+- Learning ground for a production microservice — need a robust setup for deploying to a remote VM and safely managing secrets
 
 ## Services
 
