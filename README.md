@@ -5,6 +5,7 @@ A Debian home server running Docker Swarm, managed via a deploy script.
 ## Goals
 
 - Back up phone photos (via Immich)
+- Backup immich and desktop
 - Install a 3D printer controller
 - Learn Linux server administration along the way
 
