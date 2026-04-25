@@ -28,5 +28,5 @@ A Debian home server running Docker Swarm, managed via a deploy script.
 
 ## Further reading
 
-- [Working notes and decisions](docs/notes.md)
+- [Working notes and decisions](notes.md)
 - [Homeserver reference repo](https://github.com/zilexa/Homeserver)
