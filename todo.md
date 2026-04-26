@@ -1,5 +1,7 @@
 The intent of this file is to store the long term todos that are not actively being worked on. Notes is for active work
 
+- [x] consider backup strategy and decide on filesystem type → decided on ext4 + restic (see notes.md)
+
 **Commands used (not fully understood yet):**
 
 ```bash
