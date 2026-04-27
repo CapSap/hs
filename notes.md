@@ -157,61 +157,9 @@ came back to this project after a long drift, feeling stretched and uneasy and n
 - the smallest possible next step, that commits to nothing: ssh in and run `lsblk`, `blkid`, `df -h`, `findmnt`. ground truth about what's actually installed before planning anything.
 - chose swarm originally because it was the *minimum* tool that gave real secrets management without going to k8s. that choice still stands. the goal of this whole project is learning linux + servers, so prefer the simplest path that teaches the fundamentals (ext4 + uuid fstab + bind mounts + rsync) over fancier abstractions (zfs pools, volume drivers, syncthing) unless there's a reason.
 
-# filesystem choice: ext4 vs zfs vs btrfs
+# filesystem choice: ext4
 
-## the setup
-
-**the machines:**
-- **server** — Debian, SSD (small, OS only), HDD (data)
-- **desktop** — working ssd drive, separate HDD for backups/archival
-
-**the data:**
-- **server:** Immich photos/videos + postgres DB + service configs + other services 
-- **desktop:** personal files (whatever you want protected)
-
-**the backup plan:**
-- each machine backs up to the other
-- server data → copy on desktop backup HDD
-- desktop data → copy on server HDD
-- if either machine dies, everything is recoverable from the other
-- want versioned snapshots (not just a mirror) so you can go back in time
-
-**immich-specific requirements:**
-- database dump first, then filesystem (ordering matters)
-- immich auto-dumps the DB daily into the upload location
-- need to back up `library/`, `upload/`, `profile/`, and the DB dumps
-
-## the question: what's the best way to get versioned, deduplicated snapshots between two linux machines on the same network?
-
-**decision: ext4 + restic.** keep the filesystem and backup tool separate. reasons:
-- ext4 is well-understood, any Linux live USB can read it, easy to recover
-- can swap backup tools later without reformatting
-- btrfs/ZFS have copy-on-write gotchas with postgres and Docker's storage driver (need specific tuning to avoid fragmentation/performance issues)
-- restic handles snapshots, deduplication, and network transfer from the outside — the filesystem stays simple
-- restic uses independent "repositories" — easy to back up to multiple locations (local repo on same disk + remote repo on the other machine). each repo is self-contained and location-agnostic (local disk, SSH, SFTP, S3, etc.)
-
-**option A: ext4 + restic**
-- format both HDDs as ext4, simple fstab mount
-- use restic to take snapshots and transfer between machines over the network
-- two separate things to learn, but each is simple on its own
-- filesystem is boring and reliable, backup tool handles the clever stuff
-- browsing snapshots: `restic snapshots` lists all versions, `restic ls` shows files in a snapshot, `restic mount` lets you browse any snapshot as a regular folder via FUSE. easy to find and restore individual files
-
-**option B: btrfs + btrfs send/receive**
-- format both HDDs as btrfs
-- snapshots and checksumming built into the filesystem
-- `btrfs send/receive` to replicate snapshots between machines over the network
-- one thing to learn but it's a bigger thing
-- in the mainline kernel, no DKMS issues on Debian
-- checksumming catches silent corruption — nice for long-term photo storage
-- browsing snapshots: each snapshot is a regular directory you can `cd` into and `ls`. no special tools needed — it's just a folder. very intuitive but you need to manage naming/cleanup yourself
-
-**option C: ZFS + zfs send/receive**
-- same idea as btrfs but more mature, more battle-tested
-- not in the Linux kernel — needs DKMS module, can break on kernel upgrades
-- wants more RAM
-- more concepts (pools, vdevs, datasets)
-- browsing snapshots: `zfs list -t snapshot` to list them, then access via a hidden `.zfs/snapshot/` directory inside the dataset mount point. also just regular folders you can browse
+going with **ext4** — boring, well-understood, and any Linux live USB can read it. snapshots and dedup will be handled by restic instead, so the filesystem stays simple and we can swap backup tools later without reformatting. full reasoning + comparison with btrfs and zfs: see [backup-software-decision.md](./backup-software-decision.md#filesystem-choice-ext4-vs-btrfs-vs-zfs).
 
 ## backup tool: restic + backrest
 
