@@ -212,3 +212,9 @@ came back to this project after a long drift, feeling stretched and uneasy and n
 - wants more RAM
 - more concepts (pools, vdevs, datasets)
 - browsing snapshots: `zfs list -t snapshot` to list them, then access via a hidden `.zfs/snapshot/` directory inside the dataset mount point. also just regular folders you can browse
+
+## backup tool: restic + backrest
+
+after a lot of back-and-forth, going with **restic + backrest**. risk model is dominated by user error and hardware failure (not compromise), and both are covered by versioned snapshots across two physical disks. backrest gives a self-hosted web gui that fits the broader "one healthy gui to fix the i-don't-know-what's-running anxiety" goal. borg was a serious consideration — its append-only feature is cleaner than restic's — but it defends against a threat that's not in our top tier.
+
+full reasoning, threat model, architectural framing, and the 4-repo plan: see [backup-software-decision.md](./backup-software-decision.md).
