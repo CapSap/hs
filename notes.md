@@ -149,13 +149,13 @@ chose swarm so secrets are injected at runtime via /run/secrets/ rather than sit
 came back to this project after a long drift, feeling stretched and uneasy and not sure whether to refactor. talked it through and landed on:
 
 - the drift wasn't laziness or the project being broken. it was hitting a real fork in the road (the disk filled up, new hdds got installed, and now there are real decisions to make about disk layout / bind mounts / backups). that's the project doing its job — i've reached the edge of what i currently know, same as every other thing in this repo was once at that edge.
-- the unease about `deploy.sh` is mostly an *observability* problem ("i don't know what's running on the server"), not a deploy problem. the script itself is more conservative than it looks: each service dir is its own `docker stack`, stacks are isolated, and `docker stack deploy` is idempotent + does rolling updates. adding a new service dir literally cannot touch the running ones unless i edit their files in the same commit.
-- the *real* blocker is storage, not deploys or monitoring. don't refactor anything right now. the deploy script works. nothing in this repo needs rewriting before the storage decisions are made.
+- the unease about `deploy.sh` is mostly an _observability_ problem ("i don't know what's running on the server"), not a deploy problem. the script itself is more conservative than it looks: each service dir is its own `docker stack`, stacks are isolated, and `docker stack deploy` is idempotent + does rolling updates. adding a new service dir literally cannot touch the running ones unless i edit their files in the same commit.
+- the _real_ blocker is storage, not deploys or monitoring. don't refactor anything right now. the deploy script works. nothing in this repo needs rewriting before the storage decisions are made.
 - the storage problem is actually three sub-decisions: (1) disk layout + fstab, (2) finishing the immich named-volumes → bind-mounts migration that's already half-done, (3) bidirectional backups between desktop and server. (3) is not blocking (1) and (2).
 - discovered while talking: the immich compose file was never updated when i decided to switch to bind mounts (`deploy.sh` even creates the dirs, but `immich/docker-compose.yml` still declares named volumes). so the migration is sitting in a half-state.
 - discovered while talking: portainer and beszel are both deployed-ish but neither is fully working. beszel has a placeholder `KEY` string in its compose. neither has firewall ports opened in `host-setup.sh`. one healthy gui would fix most of the "i don't know what's running" anxiety.
 - the smallest possible next step, that commits to nothing: ssh in and run `lsblk`, `blkid`, `df -h`, `findmnt`. ground truth about what's actually installed before planning anything.
-- chose swarm originally because it was the *minimum* tool that gave real secrets management without going to k8s. that choice still stands. the goal of this whole project is learning linux + servers, so prefer the simplest path that teaches the fundamentals (ext4 + uuid fstab + bind mounts + rsync) over fancier abstractions (zfs pools, volume drivers, syncthing) unless there's a reason.
+- chose swarm originally because it was the _minimum_ tool that gave real secrets management without going to k8s. that choice still stands. the goal of this whole project is learning linux + servers, so prefer the simplest path that teaches the fundamentals (ext4 + uuid fstab + bind mounts + rsync) over fancier abstractions (zfs pools, volume drivers, syncthing) unless there's a reason.
 
 # filesystem choice: ext4
 
@@ -171,7 +171,7 @@ full reasoning, threat model, architectural framing, and the 4-repo plan: see [b
 
 picking this up after months and getting tangled. reframing in plain terms.
 
-**the goal:** get immich running again with its data on the big hdd instead of the cramped /home. backups come *after* that.
+**the goal:** get immich running again with its data on the big hdd instead of the cramped /home. backups come _after_ that.
 
 **the state:** feb-me did all the hard prep — mounted the hdd persistently via uuid (working), copied immich data to `/mnt/hdd/immich/` (working), and stopped right before the dangerous bit. today-me found that swarm has since died (probably because /home filled up and writes started failing), so nothing is currently running. which is actually convenient: nothing to break.
 
@@ -180,7 +180,7 @@ picking this up after months and getting tangled. reframing in plain terms.
 1. ~~delete docker volume data~~ ← don't do this yet, last step
 2. rewrite `immich/docker-compose.yml` to use bind mounts pointing at `/mnt/hdd/immich/...`
 3. permissions on `/mnt/hdd` so the immich container user can read/write
-4. then: re-init swarm, deploy, verify, *then* delete the old data
+4. then: re-init swarm, deploy, verify, _then_ delete the old data
 
 so picking up at step 2.
 
@@ -196,7 +196,7 @@ that sequence is exactly the right "test the fstab entry" ritual: mount manually
 
 ## answering the feb question: "is the compose file the only place i need to config bind mounts?"
 
-yes — for the immich data. a bind mount in docker is just a host-path → container-path mapping declared in the compose file. docker doesn't care; it just opens the host path. the wrinkle: `deploy.sh` currently creates `~/immich/library` and `~/immich/postgres` (i.e. under `/home/shelaria/immich/`), which doesn't match the data location at `/mnt/hdd/immich/`. so step 2 is *two* edits: the compose file *and* the dir-creation block in `deploy.sh`.
+yes — for the immich data. a bind mount in docker is just a host-path → container-path mapping declared in the compose file. docker doesn't care; it just opens the host path. the wrinkle: `deploy.sh` currently creates `~/immich/library` and `~/immich/postgres` (i.e. under `/home/shelaria/immich/`), which doesn't match the data location at `/mnt/hdd/immich/`. so step 2 is _two_ edits: the compose file _and_ the dir-creation block in `deploy.sh`.
 
 ## findings from today's ground-truth checks
 
@@ -213,3 +213,12 @@ look at what's actually in `/mnt/hdd/immich/` so we know what bind mounts to dec
 ```
 sudo ls -la /mnt/hdd/immich/
 ```
+
+# progress on 30th may
+
+i tried to ssh into the machine no luck. i think it was frozen, and it wasnt reporting that the port and ip address was on/accepting connections
+
+i held down power button and restarted. all okay- i can now ssh into the machine
+
+and i can see that the ssd home dir is almost full- i need to do something about that.
+and i need to finaliase and sort out the hdd
