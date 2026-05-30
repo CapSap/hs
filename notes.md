@@ -166,3 +166,50 @@ going with **ext4** — boring, well-understood, and any Linux live USB can read
 after a lot of back-and-forth, going with **restic + backrest**. risk model is dominated by user error and hardware failure (not compromise), and both are covered by versioned snapshots across two physical disks. backrest gives a self-hosted web gui that fits the broader "one healthy gui to fix the i-don't-know-what's-running anxiety" goal. borg was a serious consideration — its append-only feature is cleaner than restic's — but it defends against a threat that's not in our top tier.
 
 full reasoning, threat model, architectural framing, and the 4-repo plan: see [backup-software-decision.md](./backup-software-decision.md).
+
+# 28/apr/26: where i actually am
+
+picking this up after months and getting tangled. reframing in plain terms.
+
+**the goal:** get immich running again with its data on the big hdd instead of the cramped /home. backups come *after* that.
+
+**the state:** feb-me did all the hard prep — mounted the hdd persistently via uuid (working), copied immich data to `/mnt/hdd/immich/` (working), and stopped right before the dangerous bit. today-me found that swarm has since died (probably because /home filled up and writes started failing), so nothing is currently running. which is actually convenient: nothing to break.
+
+**what's left** (this is the feb 10 list, still accurate):
+
+1. ~~delete docker volume data~~ ← don't do this yet, last step
+2. rewrite `immich/docker-compose.yml` to use bind mounts pointing at `/mnt/hdd/immich/...`
+3. permissions on `/mnt/hdd` so the immich container user can read/write
+4. then: re-init swarm, deploy, verify, *then* delete the old data
+
+so picking up at step 2.
+
+## the mount commands, demystified
+
+```
+sudo mount /dev/sdb1 /mnt/hdd/    # one-shot manual mount: "attach this device to this dir"
+sudo umount /mnt/hdd              # detach it
+sudo mount -a                     # mount everything listed in /etc/fstab
+```
+
+that sequence is exactly the right "test the fstab entry" ritual: mount manually to confirm it works, unmount, then `mount -a` to confirm fstab auto-mounts. feb-me did it correctly — just didn't know it at the time. the `sdb1` is now `sda1` (device names shifted when the new disk got added), which is precisely why fstab uses uuids.
+
+## answering the feb question: "is the compose file the only place i need to config bind mounts?"
+
+yes — for the immich data. a bind mount in docker is just a host-path → container-path mapping declared in the compose file. docker doesn't care; it just opens the host path. the wrinkle: `deploy.sh` currently creates `~/immich/library` and `~/immich/postgres` (i.e. under `/home/shelaria/immich/`), which doesn't match the data location at `/mnt/hdd/immich/`. so step 2 is *two* edits: the compose file *and* the dir-creation block in `deploy.sh`.
+
+## findings from today's ground-truth checks
+
+- `/mnt/hdd` is mounted via uuid and persistent (todo.md "decide disk layout" is effectively done)
+- `/home` is 100% full — 83gb of it is `/home/docker-data/docker`, the live-but-currently-stopped docker data
+- `/mnt/hdd/immich/` exists with the feb copy
+- `daemon.json` points at `/home/docker-data/docker` (note: the `/docker` suffix wasn't recorded in earlier notes — `/mnt/docker-data` was the original plan but never actually got created)
+- docker swarm is uninitialized — nothing is running
+
+## next narrow step
+
+look at what's actually in `/mnt/hdd/immich/` so we know what bind mounts to declare:
+
+```
+sudo ls -la /mnt/hdd/immich/
+```
