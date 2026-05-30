@@ -222,3 +222,30 @@ i held down power button and restarted. all okay- i can now ssh into the machine
 
 and i can see that the ssd home dir is almost full- i need to do something about that.
 and i need to finaliase and sort out the hdd
+
+## scratch / todo
+
+- verify & document how the hdd is actually set up (lvm or plain partition? filesystem? how it's mounted). run `lsblk -f` and write it down here.
+
+### tomorrow: figure out the hdd (read this first)
+
+the blocker isn't a command, it's that i don't remember the plan. so: first establish facts, then make one decision.
+
+**facts to look up — `lsblk -f` answers all three:**
+
+1. how many physical disks does the server have *total*? (this is the important one — see below)
+2. is the hdd one partition or several? what filesystem (expecting ext4)?
+3. what's the hdd's capacity?
+
+**the decision i was trying to make:** i wanted the hdd to do two jobs — (a) hold immich's live data, and (b) hold backups (a backup of the server AND a backup of my desktop pc).
+
+**the trap in that plan:** a backup must NOT live on the same physical disk as the thing it backs up. if immich's live data and immich's backup are both on the one hdd, one disk failure loses both = not a real backup.
+
+- desktop → server hdd backup: fine (different machine/disk) ✓
+- immich live data + immich backup on the same hdd: NOT a real backup ✗
+
+so "how many disks?" decides the whole architecture. the backup-software-decision notes mention "snapshots across two physical disks" — so past-me may have planned around two. confirm what's physically in the box.
+
+**on partitions:** probably don't partition *within* a disk. fixed partition sizes are what bit me when /var capped at 7gb. simpler: one partition + one filesystem, separate uses with directories (`/mnt/hdd/immich/`, `/mnt/hdd/backups/`). the separation that matters is *between* disks, not within one.
+
+**then** continue the immich migration (step 2 onward): edit immich/docker-compose.yml → bind mounts, fix deploy.sh dir paths, fix permissions (esp. the `database` dir for postgres), re-init swarm + deploy, verify, and only then delete the old /home/docker-data.
