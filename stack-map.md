@@ -68,7 +68,7 @@ how the OS itself gets set up: users, ssh hardening, ufw, docker install, mounts
 
 ## layer 4 — container runtime / orchestration
 
-**decided (july 2026): hybrid.** docker everywhere; new/touched services run plain compose; existing swarm stacks stay until there's a concrete reason to touch them. k8s/k3s ruled out. immich moves to compose during the bind-mount migration.
+**decided (july 2026): hybrid.** docker everywhere; new/touched services run plain compose; existing swarm stacks stay until there's a concrete reason to touch them. k8s/k3s ruled out. immich moves to compose during the bind-mount migration. **full rationale + revisit triggers: `swarm-vs-compose-decision.md`** — reread that when the "wait, why are we leaving swarm?" doubt resurfaces.
 
 the principle that unlocked this: services stay in containers (isolation instinct is correct), but isolation comes from networks + minimal mounts, not from the orchestrator. swarm was solving a secrets problem compose already solves.
 
