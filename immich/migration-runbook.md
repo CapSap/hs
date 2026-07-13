@@ -22,7 +22,15 @@ rollback safety: the named volumes are not touched until the very last step. at 
 
 ## step 0 — freshness check (read-only)
 
-**RESULT (verified 2026-07-12): library twin confirmed.** rsync dry-run volume→hdd: 0 files to transfer, 26,875 files / ~80G identical on both sides, newest content 2025-09-08 on both. immich stopped writing sep 2025 (when /home filled); the feb 2026 copy is complete. → skip step 2 for library; still run the quick dry-runs for database and model-cache below before trusting them.
+**RESULT (verified 2026-07-12/13): all three volumes are twins. STEP 2 IS SKIPPED ENTIRELY — boot straight onto the hdd copy.**
+
+| volume | hdd path | dry-run result |
+|---|---|---|
+| `immich_immich-library` | `library/` | 0 to transfer — 26,875 files / ~80G identical |
+| `immich_immich-database` | `database/` | 0 to transfer — 1,612 files / 354M identical |
+| `immich_model-cache` | `model-cache/` | 0 to transfer — 72 files / 802M identical |
+
+newest content on BOTH disks is 2025-09-08 (same three .mp4 filenames). immich stopped writing sep 2025 when /home filled; the feb 2026 copy captured everything. the db copy is cold (postgres long stopped before it was made) and byte-current → safe to boot.
 
 is the feb copy as new as the volumes?
 
