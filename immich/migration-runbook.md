@@ -58,13 +58,16 @@ also check swarm leftovers:
 docker stack ls && docker service ls
 ```
 
-## step 1 — remove the old stack definition (if any)
+## step 1 — remove the old stack definition — ✔ NOTHING TO DO (verified 2026-07-13)
 
-```bash
-docker stack rm immich   # only if `docker stack ls` shows it
-```
+`docker stack ls` → **"This node is not a swarm manager."** swarm is not merely unused on this box, it's *gone* — the node left swarm mode at some point (probably when docker was reinstalled / data-root moved to `/home/docker-data`). `docker info` reports `Swarm: error`, i.e. the daemon still holds a swarm config it can't load.
 
-leave swarm itself, other stacks, and swarm secrets alone — they're cleaned up in step 8.
+consequences:
+
+- no stack to remove. no swarm secrets exist (they lived in the raft store, which went with the swarm) → **the `docker secret rm` line in step 8 is moot**
+- the named volumes survived because volumes are engine-level, not swarm-level. that's why the photos are still in `/home/docker-data`
+- the `Swarm: error` state is harmless to plain compose (which never touches swarm). cleanup = `docker swarm leave --force`, **after** immich is up. don't poke it mid-migration
+- the migration is therefore not "leaving swarm" — swarm already left. it's making the config match reality
 
 ## step 2 — re-sync the diff (only if volumes are newer)
 
@@ -88,7 +91,7 @@ sudo rsync -aHAX --info=progress2 /home/docker-data/docker/volumes/<model-cache-
 
 (trailing slashes matter: `src/` `dst/` = merge contents. `-a` preserves ownership/perms — postgres is picky about this. no `--delete` anywhere: these rsyncs can only add/update files on the destination, never remove.)
 
-## step 3 — move to the planned layout
+## step 3 — move to the planned layout — ✔ DONE (2026-07-13)
 
 same filesystem, so this is instant:
 
@@ -97,7 +100,11 @@ sudo mkdir -p /mnt/hdd/services
 sudo mv /mnt/hdd/immich /mnt/hdd/services/immich
 ```
 
-sanity: `ls /mnt/hdd/services/immich` → `database  library  model-cache`
+**RESULT:** landed. `/mnt/hdd/` now holds only `lost+found` + `services/`. `/mnt/hdd/services/immich/` = `database 339M`, `library 75G`, `model-cache 766M`. no nesting.
+
+gotcha for next time: the `mv` printed `cannot stat '/mnt/hdd/immich'` — that was a **doubled paste** (the block ran twice; the second run had nothing left to move), not a failure. verified by `ls`/`du` after.
+
+second gotcha: `test -f .../database/PG_VERSION` as a normal user reports MISSING even though the file is there. postgres's data dir is mode `0700` owned by uid `999` (rsync -a faithfully preserved that) — you cannot stat inside it without sudo. **always `sudo test -f`.** confirmed present, `PG_VERSION` = `14`, everything owned `999:999`.
 
 ## step 4 — secret files on the server
 
@@ -120,6 +127,41 @@ notes:
 
 git pull the branch containing the converted `immich/docker-compose.yml` into the server's checkout (or scp the file over).
 
+## the version situation (researched 2026-07-13 — read before step 6)
+
+**what was actually running when immich died:** `v1.138.0` (image built 2025-08-14), preceded by `v1.137.3`. established from the labels of the images still cached on the server — `docker image inspect <id> --format '{{json .Config.Labels}}'`. the images are untagged (`TAG <none>`) because swarm pulled them by digest.
+
+**where immich is now:** `v3.0.2` (july 2026). two major-version bumps away. docs now say `IMMICH_VERSION=v3`.
+
+**the three gates, and where we stand on each:**
+
+| gate | status |
+|---|---|
+| "must start once on 1.132–1.136 before going ≥1.137" | ✔ **passed already** — this box ran 1.137.3 *and* 1.138.0 |
+| v3.0.0 **drops pgvecto.rs**; pre-1.133 users must migrate to VectorChord first | ✔ **not applicable** — this db was born on VectorChord (see below) |
+| mobile app only talks to server of the **current or prior major** version | ⚠️ **the phone forces our hand** — a v3-era app will NOT talk to a v1.138 server |
+
+**why we know the db is already VectorChord (and the `pg_vectors` dir is a red herring):** the compose file has pinned `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0` since the *init commit* (2025-07-12); `tensorchord` appears nowhere in git history; `DB_VECTOR_EXTENSION` was never set; and the postgres cluster was initdb'd 2025-08-10, i.e. *after* that image was already in use. per immich's docs: "if you see `ghcr.io/immich-app/postgres` in the docker-compose.yml and have not explicitly set `DB_VECTOR_EXTENSION`, your database is already using VectorChord." the `$PGDATA/pg_vectors` directory is just the bundled compat extension being preloaded — that's what the `-pgvectors0.2.0` in the tag *is*.
+
+### therefore: boot in two phases, not one
+
+**phase A — pin `IMMICH_VERSION=v1.138.0` for the first boot.** the point is to change ONE thing at a time. this migration already swaps the storage layer (named volumes → bind mounts on a different disk), the orchestrator (swarm → compose) and the secrets mechanism. adding an 11-month, two-major-version app jump on top means any failure is unattributable. v1.138.0 is the exact version that wrote this database, and **its image is already cached on the server** — no pull, guaranteed compatible. if the photos load, the storage migration is *proven*.
+
+**phase B — then upgrade to v3, deliberately, with a rollback in hand.** required anyway, because the phone app won't talk to a v1 server, and the phone is the whole point. procedure in step 7b.
+
+### protect the cached images BEFORE any pruning
+
+the cached `v1.138.0` images are untagged, which means `docker system prune` (step 8) **will delete them**. they are the only offline copy of the exact version matching this database — the thing you'd want if a v3 upgrade goes wrong. tag them first so prune can't touch them:
+
+```bash
+docker image tag 75c007776149 ghcr.io/immich-app/immich-server:v1.138.0
+docker image tag efa24a0298d8 ghcr.io/immich-app/immich-machine-learning:v1.138.0
+docker image tag 86a9b06ef825 ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+docker image ls | grep -E 'immich|postgres'   # confirm they now have real tags
+```
+
+(verify the ml image id first — `docker image inspect efa24a0298d8 --format '{{json .Config.Labels}}'` should also say v1.138.0.)
+
 ## step 6 — preflight checks
 
 ```bash
@@ -134,19 +176,65 @@ sudo du -sh /mnt/hdd/services/immich/library   # expect ~75G, not zero
 ls -ln /mnt/hdd/services/immich/database | head -3   # note numeric uid — should match what the volume had (rsync -a preserved it)
 ```
 
-version-jump check: immich moved ~5 months of releases while down. skim the breaking-changes notes at https://github.com/immich-app/immich/releases before `up`. the postgres image (vectorchord) is already the current generation, which removes the worst historical migration. consider pinning `IMMICH_VERSION` in `.env` to the current release instead of `release` so future upgrades are deliberate.
+note the `sudo` on the PG_VERSION test — see the step 3 gotcha. and `IMMICH_VERSION` must read `v1.138.0`, **not** `release` — see "the version situation" above.
 
-## step 7 — up, watch, verify
+## step 7a — phase A: boot the version that matches the database
 
 ```bash
 docker compose up -d
-docker compose logs -f immich-server   # expect db migration output on first boot; let it finish
+docker compose logs -f immich-server
 ```
 
+expect: no schema migration at all, or a trivial one. this is the same version that last wrote this db, so a long migration log here means something is wrong — stop and read it.
+
 verify like a user, not like an admin:
-- open http://server:2283 — log in, timeline shows the old photos
-- upload one new photo from the phone app — appears in timeline
-- check server settings → the built-in DAILY DATABASE DUMP is enabled (dumps land in `library/backups/`) — this is what restic will back up; the live `database/` dir never gets backed up directly
+- open http://server:2283 — log in, timeline shows the old photos (newest ≈ 2025-09-08)
+- **do not bother trying the phone app yet** — a v3-era app will not talk to this v1.138 server. that's expected, not a bug. the web UI is the test here
+- if photos load: **the storage migration is proven.** bind mounts, compose, file-secrets, the hdd copy — all good
+
+## step 7b — phase B: upgrade to v3
+
+only once 7a is green. first, a rollback point — the whole database is 339M, so this is cheap and it is the thing that makes the upgrade reversible:
+
+```bash
+docker compose down
+sudo cp -a /mnt/hdd/services/immich/database /mnt/hdd/services/immich/database-pre-v3-$(date +%F)
+sudo du -sh /mnt/hdd/services/immich/database-pre-v3-*   # ~339M
+```
+
+(`cp -a` preserves the `999:999` ownership and `0700` mode that postgres demands. a cold copy of a stopped cluster is a valid restore source — same reasoning as the feb copy we just booted from.)
+
+then set `IMMICH_VERSION=v3` in `.env` and:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose logs -f immich-server
+```
+
+expect a **long** first boot: ~11 months of accumulated schema migrations, then reindexing. immich's docs warn the logs can look stuck at `Reindexing clip_index` / `Reindexing face_index` for a long while on a large library — with ~27k assets on a spinning disk, give it time. no errors = let it run.
+
+open questions to settle at this point (not before — they only matter for v3):
+- does v3's compose expect a newer postgres image tag than `14-vectorchord0.4.3-pgvectors0.2.0`? check the current upstream compose: `curl -sL https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml`
+- postgres 14 goes EOL end of 2026, and immich is moving toward pg18. a postgres **major** upgrade is a separate project — do not fold it into this one
+
+rollback if v3 goes wrong:
+
+```bash
+docker compose down
+sudo rm -rf /mnt/hdd/services/immich/database
+sudo mv /mnt/hdd/services/immich/database-pre-v3-<date> /mnt/hdd/services/immich/database
+# set IMMICH_VERSION=v1.138.0 in .env
+docker compose up -d
+```
+
+(this `rm -rf` deletes only the *upgraded* db, with the pre-upgrade copy sitting right next to it and the photos untouched in `library/`. it is the one destructive command in the rollback and it's guarded by the copy above.)
+
+## step 7c — the actual goal
+
+- upload one new photo **from the phone app** — appears in timeline. this is the first real proof the backlog can drain
+- server settings → enable the built-in DAILY DATABASE DUMP (dumps land in `library/backups/`) — this is what restic will back up; the live `database/` dir never gets backed up directly
+- then let the phone drain ~10 months of photos onto the 14tb drive
 
 ## step 8 — reclaim (ONLY after the first restic snapshot of the library exists on the desktop)
 
