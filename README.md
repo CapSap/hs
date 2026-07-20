@@ -25,11 +25,16 @@ A Debian home server running Docker Swarm, managed via a deploy script.
 ## Server details
 
 - **OS:** Debian, LVM with separate /home, /var, /tmp partitions
-- **Docker data root:** `/mnt/docker-data` (configured via `/etc/docker/daemon.json`)
+- **Docker data root:** `/home/docker-data/docker` (configured via `/etc/docker/daemon.json`)
 - **Storage:** HDD mounted at `/mnt/hdd` for Immich data (migration in progress)
 
 ## Further reading
 
 - [Working notes and decisions](notes.md)
+- [Containers & orchestration primer](containers-and-orchestration.md) — how containers actually work (kernel pillars → Docker → Compose → Swarm → k8s) and the single-server orchestrator landscape
 - [Homeserver reference repo](https://github.com/zilexa/Homeserver)
 
+## History
+
+I intially thought i had to use docker swarm for production and safe secrets. ive since learned that docker-compose is fine.
+but i did spend a lot of time second guessing myself and feeling overwhelmded

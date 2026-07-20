@@ -2,7 +2,7 @@
 
 the purpose of this file: when a decision comes up (or a shiny new tool appears), find which layer it lives at, check whether that layer is already decided, and only reopen it if a revisit trigger actually fires. this is the antidote to "everything feels connected to everything."
 
-companion docs: `handover.md` (july 2026 strategy review), `backup-software-decision.md`, `todo.md`.
+companion docs: `handover.md` (july 2026 strategy review), `backup-software-decision.md`, `todo.md`, `containers-and-orchestration.md` (the how-it-works primer under layer 4).
 
 ## the goals (fixed reference point)
 
@@ -68,7 +68,7 @@ how the OS itself gets set up: users, ssh hardening, ufw, docker install, mounts
 
 ## layer 4 — container runtime / orchestration
 
-**decided (july 2026): hybrid.** docker everywhere; new/touched services run plain compose; existing swarm stacks stay until there's a concrete reason to touch them. k8s/k3s ruled out. immich moves to compose during the bind-mount migration. **full rationale + revisit triggers: `swarm-vs-compose-decision.md`** — reread that when the "wait, why are we leaving swarm?" doubt resurfaces.
+**decided (july 2026): hybrid.** docker everywhere; new/touched services run plain compose; existing swarm stacks stay until there's a concrete reason to touch them. k8s/k3s ruled out. immich moves to compose during the bind-mount migration. **full rationale + revisit triggers: `swarm-vs-compose-decision.md`** — reread that when the "wait, why are we leaving swarm?" doubt resurfaces. **how the whole stack actually works (kernel pillars → docker → compose → swarm → k8s) + the single-server orchestrator landscape (dockge, podman/quadlet, coolify, nomad): `containers-and-orchestration.md`.**
 
 the principle that unlocked this: services stay in containers (isolation instinct is correct), but isolation comes from networks + minimal mounts, not from the orchestrator. swarm was solving a secrets problem compose already solves.
 
