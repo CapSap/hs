@@ -15,7 +15,6 @@ Ordered most-important first. The last two are optional/low-value.
 - **home:** `todo.md` — expand the existing deploy.sh item (it currently has only rows 1–3)
 - **ref that points here:** `stack-map.md:80`, `todo.md:27`
 
-```
 | issue | where | detail |
 |---|---|---|
 | rotation doesn't converge | `deploy.sh:141-152` | secrets in use are silently skipped — editing a local `.env` value does nothing for a running service. this is WHY the manual ssh/stop/rm/redeploy rotation script had to exist. (already noted in `todo.md`) |
@@ -24,7 +23,6 @@ Ordered most-important first. The last two are optional/low-value.
 | dead error branches | e.g. `deploy.sh:154,190` | `set -e` exits before any `if [[ $? -eq 0 ]] ... else` branch can run; `$?` after an `if` is the if's status anyway |
 | local/remote dir coupling | `deploy.sh:93,101` | service list comes from `find` on the REMOTE checkout, but the subshell `cd`s into the LOCAL dir of the same name. a remote-only dir kills the whole deploy under `set -e` |
 | dead code | `deploy.sh:204` | `mkdir -p ~/immich/{library,postgres}` predates the switch to named volumes |
-```
 
 ### [ ] 2. "push to master = root on the server" gotcha (exists nowhere else)
 - **from:** handover.md §gotchas
