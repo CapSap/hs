@@ -52,3 +52,22 @@ every answer came back empty. the compose column had: immich's docs work again, 
 - the business-mimicry project comes back AND its learning goal is specifically orchestration rather than the cron/sftp/backup fundamentals it actually needs
 
 absent those, resurfacing doubt is noise, not signal — reread this file and move on.
+
+other considerations
+
+### [ ] 4. Deployment-strategy alternatives survey (6 options + recommendation)
+
+- **from:** handover.md §2. Option 6 and the "1 + 3 + light 4" recommendation exist nowhere else; options 3/4/5 are placed individually in stack-map but never as a survey.
+- **home:** `swarm-vs-compose-decision.md` — as an appendix (that doc's opening line already advertises "the full alternatives survey" and points here)
+- **ref that points here:** `swarm-vs-compose-decision.md:3`
+
+```
+1. **plain compose + systemd timers** — the boring default; most faithful mimicry of what small businesses actually run on a single vps. compose supports file-based `secrets:` WITHOUT swarm (bind-mounted, not tmpfs; `*_FILE` pattern carries over unchanged)
+2. **swarm (current)** — already paid the learning cost, but weakest on the mimicry argument: single-node swarm is niche in real production. what transfers is the discipline (file secrets, declarative stacks, scripted deploy), not the swarm api itself
+3. **compose + SOPS/age** — encrypt `.env` files, commit them; repo becomes single source of truth, rotation = git commit, dr = clone + one age key. fixes the "local .env is invisible state" problem
+4. **ansible (or bash made idempotent)** — `host-setup.sh`/`deploy.sh` are hand-rolled non-idempotent ansible; idempotent config mgmt is a bigger real-world skill than any orchestrator
+5. **k3s** — best employability, `CronJob` maps perfectly to the csv workload, but severe complexity tax. **ruled out**
+6. **no containers (systemd-native)** — for the actual business workload arguably correct (systemd timer + `LoadCredential=` + openssh `internal-sftp` chroot), but least reusable for the homeserver
+
+recommendation for the business-mimicry goal (now background): 1 + 3 + light 4.
+```
