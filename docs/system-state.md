@@ -14,8 +14,11 @@ stack-map.
 truth. run it, read the output, write the facts underneath. keep it secret-free
 (usernames, disk layout, paths = fine; passwords, keys = never — this is in git).
 
-> placeholder — commands are in place, findings still to be filled in by direct
-> investigation.
+> **status:** a few sections now hold facts *salvaged from the old handover
+> docs* and tagged ⚠️ **UNVERIFIED** — they were written from memory, not
+> re-derived on this machine. run each section's command to confirm (and fix)
+> them, then drop the ⚠️ and rewrite them in your own words. sections still
+> showing _(paste output …)_ are untouched.
 
 ---
 
@@ -32,7 +35,15 @@ drive model.
 
 **findings:**
 
-_(paste output / write facts here)_
+> ⚠️ **UNVERIFIED — salvaged from the old handover docs, written from memory,
+> not re-derived on the live box.** confirm by running the command above, then
+> drop the ⚠️ and rewrite in your own words.
+
+- **238.5G ssd** — the OS disk, under LVM (see the LVM section)
+- **12.7T hdd** — `/dev/sdb1`, ext4, mounted at `/mnt/hdd` by UUID, already in fstab
+
+_(the ext4 / UUID / mount details above also feed the **filesystems & UUIDs**
+and **mounts** sections — confirm them there with `blkid` and `findmnt`.)_
 
 ---
 
@@ -63,7 +74,16 @@ sudo lvs      # logical volumes — /home, root, swap, sizes
 
 **findings:**
 
-_(VG name, LV sizes, free space in the VG, etc.)_
+> ⚠️ **UNVERIFIED — salvaged from the old handover docs, written from memory,
+> not re-derived on the live box.** confirm with `vgs`/`lvs` above, then drop
+> the ⚠️ and rewrite in your own words.
+
+- **VG name:** `shelaria-s-vg`
+- **`/home` was 100% full** (83G / 85G) — extended live, zero downtime, with:
+  `sudo lvextend -r -L +30G shelaria-s-vg/home` → now **116G**. (first write
+  operation of the project.)
+- **free space in the VG:** was ~119G *before* the +30G extend, so ≈89G should
+  remain now — **check the real number with `vgs`**, don't trust this arithmetic.
 
 ---
 
@@ -113,4 +133,10 @@ docker info -f '{{.DockerRootDir}}'             # just the data-root path
 
 **findings:**
 
-_(data-root path, storage driver, etc.)_
+> ⚠️ **UNVERIFIED — salvaged from the old handover docs, written from memory,
+> not re-derived on the live box.** confirm with `docker info` above, then drop
+> the ⚠️ and rewrite in your own words.
+
+- **data-root is `/home/docker-data/docker`** (not the default `/var/lib/docker`)
+- this is the footgun: named volumes live on the **small ssd**, so filling them
+  fills `/home`. immich's volumes (~76G) are what killed `/home`.
