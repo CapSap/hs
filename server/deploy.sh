@@ -2,6 +2,9 @@
 
 # Docker Swarm Deployment Script
 # This script creates secrets from .env files, builds images, and deploys services
+#
+# Run from the REPO ROOT:  ./server/deploy.sh
+# (the script lives in server/, but service dirs are addressed relative to the root)
 
 set -e # Exit on any error
 
@@ -89,8 +92,8 @@ main() {
         info "Docker Swarm already initialized"
     fi
 
-    # get a list of services on server
-    all_dirs=$(run_remote_silent "find '$REMOTE_REPO_PATH' -maxdepth 1 -type d -not -path '$REMOTE_REPO_PATH'")
+    # get a list of services on server (they live under server/ since the reorg)
+    all_dirs=$(run_remote_silent "find '$REMOTE_REPO_PATH/server' -maxdepth 1 -type d -not -path '$REMOTE_REPO_PATH/server'")
     remote_dirs=$(echo "$all_dirs" | sed 's|.*/||' | grep -v -E '^(scripts|docs|\.git)$')
 
     # for each remote dir add local .env file to docker
@@ -98,7 +101,7 @@ main() {
         echo "  attempting to add secret for '$dir' "
         (
             # cd into local dir, read the secret, and the run the remote command to input the secret
-            cd "$dir"
+            cd "server/$dir"
             # Check if .env file exists
             if [[ ! -f ".env" ]]; then
                 echo "No .env file found in '$dir', skipping..."
@@ -165,7 +168,7 @@ main() {
 
     # Build images from Dockerfiles only
     for dir in $remote_dirs; do
-        full_path="$REMOTE_REPO_PATH/$dir"
+        full_path="$REMOTE_REPO_PATH/server/$dir"
         if run_remote "test -f '$full_path/Dockerfile'"; then
             log "Building $dir from Dockerfile"
             run_remote "docker build -t '$dir:latest' '$full_path'" || {
@@ -180,7 +183,7 @@ main() {
 
     # deploy
     for dir in $remote_dirs; do
-        full_path="$REMOTE_REPO_PATH/$dir"
+        full_path="$REMOTE_REPO_PATH/server/$dir"
         if run_remote "test -f '$full_path/docker-compose.yml'"; then
             log "Deploying service: $dir"
 

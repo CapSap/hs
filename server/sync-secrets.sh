@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # sync-secrets.sh — mirror per-service secret files to the server.
 #
-# secrets live in <service>/secrets/ locally (gitignored) and are copied to the
-# same path inside the server's checkout. run from the repo root.
+# secrets live in server/<service>/secrets/ locally (gitignored) and are copied
+# to the same path inside the server's checkout. run from the repo root.
 #
-#   ./sync-secrets.sh            # sync every <service>/secrets/ dir
-#   SERVER=other ./sync-secrets.sh
+#   ./server/sync-secrets.sh            # sync every server/<service>/secrets/ dir
+#   SERVER=other ./server/sync-secrets.sh
 #
 # no --delete: this only adds/updates files on the server, never removes them.
 set -euo pipefail
@@ -15,7 +15,7 @@ REMOTE_REPO="${REMOTE_REPO:-box}"  # checkout path, relative to the remote home 
 
 shopt -s nullglob
 found=0
-for dir in */secrets/; do
+for dir in server/*/secrets/; do
   found=1
   svc="${dir%/secrets/}"
   echo ">> $svc/secrets -> $SERVER:$REMOTE_REPO/$svc/secrets"
@@ -24,7 +24,7 @@ for dir in */secrets/; do
 done
 
 if [ "$found" != 1 ]; then
-  echo "no */secrets/ dirs found — are you in the repo root?" >&2
+  echo "no server/*/secrets/ dirs found — are you in the repo root?" >&2
   exit 1
 fi
 echo "done."
