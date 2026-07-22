@@ -10,7 +10,7 @@ sudo umount /mnt/hdd             # detach it
 sudo mount -a                    # mount everything listed in /etc/fstab — the persistent version
 ```
 
-(the fstab entry by UUID is what makes /mnt/hdd survive reboots — verified present. more of the goal-1 ledger in `handover2.md`)
+(the fstab entry by UUID is what makes /mnt/hdd survive reboots — verified present. the storage ground-truth facts + the commands that reveal them live in `system-state.md`.)
 
 ## april-2026: once again for the first time
 
@@ -23,8 +23,8 @@ sudo mount -a                    # mount everything listed in /etc/fstab — the
 
 ## later, not blocking the storage work
 
-- [ ] pick *one* monitoring gui and actually get it healthy. UPDATE july 2026: neither is even running anymore (`docker ps` is empty — the whole server was idle). when revisiting, deploy the winner as plain compose per the hybrid direction, not as a swarm stack. beszel needs a real `KEY` value in `beszel/docker-compose.yml:37` (currently a placeholder string). (note: ufw doesn't actually gate docker-published ports — see handover.md §gotchas — so "open ports in ufw" is moot on the LAN)
-- [ ] deploy.sh: only matters while anything still runs on swarm — immich leaves it with the migration. if kept for portainer/beszel: the known bugs are catalogued in `handover.md` §1 (secret rotation silently skipped at `deploy.sh:141-152`, `echo` adds trailing newline to secrets, unchanged image tags may not redeploy). if everything ends up on plain compose instead, retire the script rather than fix it
+- [ ] pick *one* monitoring gui and actually get it healthy. UPDATE july 2026: neither is even running anymore (`docker ps` is empty — the whole server was idle). when revisiting, deploy the winner as plain compose per the hybrid direction, not as a swarm stack. beszel needs a real `KEY` value in `beszel/docker-compose.yml:37` (currently a placeholder string). (note: ufw doesn't actually gate docker-published ports — see `stack-map.md` layer 8 — so "open ports in ufw" is moot on the LAN)
+- [ ] deploy.sh: only matters while anything still runs on swarm — immich leaves it with the migration. if kept for portainer/beszel, the known bugs (this list is the catalogue): secret rotation silently skipped at `deploy.sh:141-152`, `echo` adds trailing newline to secrets, unchanged image tags may not redeploy. if everything ends up on plain compose instead, retire the script rather than fix it
 
 ## 3D printer controller
 

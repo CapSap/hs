@@ -1,6 +1,6 @@
 # swarm → plain compose decision (july 2026)
 
-the "why are we switching?" record. this question has resurfaced more than once — when it does, reread this instead of re-deriving it. companion docs: `handover.md` §2 (the full alternatives survey), `stack-map.md` layer 4.
+the "why are we switching?" record. this question has resurfaced more than once — when it does, reread this instead of re-deriving it. the full alternatives survey (6 options + recommendation) is the appendix at the bottom of this file. companion doc: `stack-map.md` layer 4.
 
 ## tl;dr
 

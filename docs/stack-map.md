@@ -2,7 +2,7 @@
 
 the purpose of this file: when a decision comes up (or a shiny new tool appears), find which layer it lives at, check whether that layer is already decided, and only reopen it if a revisit trigger actually fires. this is the antidote to "everything feels connected to everything."
 
-companion docs: `handover.md` (july 2026 strategy review), `backup-software-decision.md`, `todo.md`, `containers-and-orchestration.md` (the how-it-works primer under layer 4).
+companion docs: `backup-software-decision.md`, `todo.md`, `containers-and-orchestration.md` (the how-it-works primer under layer 4).
 
 ## the goals (fixed reference point)
 
@@ -77,7 +77,7 @@ the principle that unlocked this: services stay in containers (isolation instinc
 
 ## layer 5 — deployment & secrets
 
-how compose files and secrets get onto the server and become running containers. currently `deploy.sh` (git pull on server + `docker stack deploy` + swarm secrets over ssh stdin). known bugs catalogued in `handover.md` §1.
+how compose files and secrets get onto the server and become running containers. currently `deploy.sh` (git pull on server + `docker stack deploy` + swarm secrets over ssh stdin). known bugs catalogued in `todo.md` (the deploy.sh item).
 
 for migrated services: compose file-based `secrets:` + `*_FILE` env vars — same app-facing pattern, 600-perm files instead of tmpfs. proportionate for LAN-only postgres passwords.
 
