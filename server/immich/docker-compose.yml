@@ -41,6 +41,7 @@ services:
       - DB_PASSWORD_FILE=/run/secrets/immich_db_password
       - DB_USERNAME_FILE=/run/secrets/immich_db_username
       - DB_DATABASE_NAME_FILE=/run/secrets/immich_db_database_name
+      - IMMICH_MEDIA_LOCATION=/usr/src/app/upload
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -64,6 +65,7 @@ services:
   database:
     container_name: immich_postgres
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    shm_size: 128mb
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/immich_db_password
       POSTGRES_USER_FILE: /run/secrets/immich_db_username
