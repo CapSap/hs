@@ -1,5 +1,33 @@
 # immich migration runbook: swarm + named volumes → plain compose + bind mounts
 
+> # ✔ IMMICH IS RUNNING AGAIN (2026-08-16)
+>
+> **steps 0 through 7a are done.** first successful boot since ~sept 2025 — about
+> eleven months of downtime ended. running on plain compose, bind mounts, the
+> 14tb drive, and file-based secrets, pinned to `v1.138.0`.
+>
+> the data move — the slow, 80-gigabyte, genuinely risky part — was finished
+> before this session and re-proven during it. what actually remained was config
+> plumbing, and the single missing artifact turned out to be one `.env` file.
+>
+> **remaining, in order:**
+>
+> 1. **tag the cached v1.138.0 images** if that wasn't done before booting —
+>    prune protection, and it's the only offline copy matching this database
+> 2. **step 7b — the v3 upgrade.** required, because the phone app won't talk to
+>    a v1 server and the phone is the entire point. make the `database-pre-v3-*`
+>    copy FIRST; this is the one genuinely hard-to-reverse write in the project
+> 3. **step 7c — a fresh upload from the phone** (also the first proof the
+>    library is *writable*, not just readable), then enable the daily db dump,
+>    then let ~11 months of backlog drain onto the hdd
+> 4. **step 8 — reclaim the ssd.** gated on a real backup existing first. never
+>    before
+>
+> paths in this doc predate two changes and are corrected inline where it
+> matters: the data moved to `/mnt/hdd/services/immich/…` (step 3), and the repo
+> reorganised so `immich/` is now `server/immich/` and this file is
+> `docs/immich-migration-runbook.md`.
+
 state as of july 2026 (verified by hand on the server):
 
 - nothing is running (`docker ps` empty). immich has been down since ~feb. data is frozen — no risk of writes during this migration.
@@ -22,13 +50,41 @@ rollback safety: the named volumes are not touched until the very last step. at 
 
 ## step 0 — freshness check (read-only)
 
-**RESULT (verified 2026-07-12/13): all three volumes are twins. STEP 2 IS SKIPPED ENTIRELY — boot straight onto the hdd copy.**
+**RESULT (verified 2026-07-12/13, RE-VERIFIED 2026-08-16): all three volumes are twins. STEP 2 IS SKIPPED ENTIRELY — boot straight onto the hdd copy.**
 
-| volume | hdd path | dry-run result |
-|---|---|---|
-| `immich_immich-library` | `library/` | 0 to transfer — 26,875 files / ~80G identical |
-| `immich_immich-database` | `database/` | 0 to transfer — 1,612 files / 354M identical |
-| `immich_model-cache` | `model-cache/` | 0 to transfer — 72 files / 802M identical |
+| volume | hdd path | dry-run result | re-check 2026-08-16 |
+|---|---|---|---|
+| `immich_immich-library` | `library/` | 0 to transfer — 26,875 files / ~80G identical | ✔ 0 — 26,875 reg files, 79,804,981,655 bytes |
+| `immich_immich-database` | `database/` | 0 to transfer — 1,612 files / 354M identical | ✔ 0 — 1,581 reg files, 354,260,166 bytes |
+| `immich_model-cache` | `model-cache/` | 0 to transfer — 72 files / 802M identical | ✔ 0 — 49 reg files, 802,152,767 bytes |
+
+exact volume names confirmed with `docker volume ls`: `immich_immich-library`,
+`immich_immich-database`, `immich_model-cache`. note the asymmetry — two carry a
+doubled `immich_immich-` prefix and one doesn't, because the stack was named
+`immich` and docker prepends the project name to whatever the compose file
+declared. you cannot guess these; list them.
+
+**the file counts are two different numbers for the same thing.** the library is
+`45,950` total entries but `26,875` *regular files* — the other 19,075 are
+directories (immich shards its library by user uuid then date). both figures are
+correct; don't be alarmed when they disagree.
+
+**why a five-month-old copy hadn't gone stale:** immich stopped writing in sept
+2025 when `/home` filled. the data has been frozen since. a copy of a stopped
+system doesn't drift — and that's also why this migration is unusually safe,
+there's no live database to catch mid-write.
+
+**what "0 to transfer" does and doesn't prove.** rsync's default quick-check
+compares **size + mtime**, not contents — so this proves no file differs in size
+or timestamp, NOT that every byte is identical. silent bit-rot would pass it. a
+true byte comparison needs `-c` (checksum), which reads all 80G on both disks.
+not done, deliberately: the ssd copy isn't going anywhere until step 8, and
+immich rendering the photos is a better integrity test than a checksum anyway —
+it proves the data is *valid*, not merely *present*.
+
+⚠️ **the paths in the commands below are pre-step-3.** the data now lives at
+`/mnt/hdd/services/immich/…`, not `/mnt/hdd/immich/…`. the 2026-08-16 re-check
+used the `services/` paths.
 
 newest content on BOTH disks is 2025-09-08 (same three .mp4 filenames). immich stopped writing sep 2025 when /home filled; the feb 2026 copy captured everything. the db copy is cold (postgres long stopped before it was made) and byte-current → safe to boot.
 
@@ -106,9 +162,38 @@ gotcha for next time: the `mv` printed `cannot stat '/mnt/hdd/immich'` — that 
 
 second gotcha: `test -f .../database/PG_VERSION` as a normal user reports MISSING even though the file is there. postgres's data dir is mode `0700` owned by uid `999` (rsync -a faithfully preserved that) — you cannot stat inside it without sudo. **always `sudo test -f`.** confirmed present, `PG_VERSION` = `14`, everything owned `999:999`.
 
-## step 4 — secret files on the server
+## step 4 — secret files on the server — ✔ DONE (verified 2026-08-16)
 
-in the server's checkout of this repo, `immich/` dir (values from local `immich/.env` — DB_PASSWORD, DB_USERNAME, DB_DATABASE_NAME):
+**RESULT:** all three secret files present at `~/box/server/immich/secrets/`, mode
+`drwx------`. they were put there by `server/sync-secrets.sh`, not by hand — the
+manual `printf` recipe below is the fallback, not what was used.
+
+**path note:** the july reorg moved `immich/` → `server/immich/`. this step ran
+against the NEW path while the server's git checkout was still on the OLD flat
+layout, so `~/box/server/` existed on disk before git knew about it. that's why
+`ls` on the server showed both `immich/` and `server/`.
+
+**the `.env` gap — the one thing that was actually missing.** `sync-secrets.sh`
+copies `secrets/` but **not** `.env`, and `.env` is gitignored, so `git pull`
+can't carry it either. it had to be scp'd across by hand:
+
+```bash
+scp server/immich/.env debian-box:box/server/immich/.env
+```
+
+worth fixing in `sync-secrets.sh` so a fresh setup doesn't rediscover this.
+
+**the `.env` is not secret** — it holds exactly the five variables the compose
+file interpolates (`UPLOAD_LOCATION`, `DB_DATA_LOCATION`, `MODEL_CACHE_LOCATION`,
+`TZ`, `IMMICH_VERSION`). paths, a timezone and a version string. the credentials
+live only in `secrets/`. that separation is what makes the `.env` safe to scp
+around and the secrets worth guarding.
+
+---
+
+the original manual recipe, kept as the fallback — in the server's checkout,
+`server/immich/` dir (values from local `.env` — DB_PASSWORD, DB_USERNAME,
+DB_DATABASE_NAME):
 
 ```bash
 mkdir -p secrets && chmod 700 secrets
@@ -123,9 +208,52 @@ notes:
 - the leading space trick doesn't apply here since these are files, but don't paste the password into a bare `echo` either; `secrets/` is gitignored
 - also create/update the server's `immich/.env` to match the local one (it's gitignored, so git pull won't bring it): UPLOAD_LOCATION, DB_DATA_LOCATION, MODEL_CACHE_LOCATION, TZ, IMMICH_VERSION
 
-## step 5 — get the new compose file onto the server
+## step 5 — get the new compose file onto the server — ✔ DONE (2026-08-16)
 
-git pull the branch containing the converted `immich/docker-compose.yml` into the server's checkout (or scp the file over).
+**RESULT:** the server's checkout was **12 commits behind** — sitting on `29a812f`
+(2026-07-20), i.e. *before* the july reorg. fast-forwarded to `8f49366` with:
+
+```bash
+cd ~/box
+git fetch origin
+git branch --set-upstream-to=origin/master master   # see below
+git merge --ff-only origin/master
+```
+
+**the trap that cost twenty minutes, worth internalising:** `git fetch` reported
+`beb36a9..8f49366 master -> origin/master`, but `git status` said only
+*"nothing to commit, working tree clean"* — **no "your branch is behind" line at
+all.** the checkout had **no upstream tracking configured**, so `git status` had
+nothing to compare against and stayed silent.
+
+why: `deploy.sh:72-76` bootstraps the server's checkout with `git init` +
+`git remote add` + `git pull origin master`. **`git clone` sets up branch
+tracking; that sequence does not.** the repo worked fine for a year while being
+quietly unable to tell you whether it was up to date.
+
+diagnose it with `git branch -vv` — tracking shows as `[origin/master: behind N]`
+in brackets after the commit hash. absent brackets = no tracking. fixed now with
+`--set-upstream-to`, so `git status` can answer the question from here on.
+
+also worth remembering: **`git fetch` never moves your branch.** it updates the
+`origin/*` refs only. `git pull` = `fetch` + `merge`; doing them separately is
+the safer habit, and `--ff-only` refuses rather than improvising a merge commit.
+
+**the compose file was already there.** `git diff --name-status -M` showed
+`R100 immich/docker-compose.yml → server/immich/docker-compose.yml` — a 100%
+pure rename. the converted file had landed *before* the server's july commit, so
+the pull only relocated it. confirmed independently by diffing against the
+desktop copy: byte-identical.
+
+**the orphan.** git moves tracked files but leaves gitignored ones alone, so the
+pre-reorg `~/box/immich/secrets/` stayed behind after everything else in that
+directory was moved out — a second copy of the db credentials in a dead path.
+proven redundant before deleting:
+
+```bash
+diff -r ~/box/immich/secrets ~/box/server/immich/secrets && echo "IDENTICAL"
+rm -rf ~/box/immich
+```
 
 ## the version situation (researched 2026-07-13 — read before step 6)
 
@@ -162,10 +290,58 @@ docker image ls | grep -E 'immich|postgres'   # confirm they now have real tags
 
 (verify the ml image id first — `docker image inspect efa24a0298d8 --format '{{json .Config.Labels}}'` should also say v1.138.0.)
 
-## step 6 — preflight checks
+## step 6 — preflight checks — ✔ DONE, ALL GREEN (2026-08-16)
+
+**RESULT:**
+
+| check | result |
+|---|---|
+| `docker compose config` renders | ✔ every `${...}` resolved — `.env` is being read |
+| image versions | ✔ `immich-server:v1.138.0`, `immich-machine-learning:v1.138.0` — pinned, not `release` |
+| bind mount paths | ✔ all three resolve under `/mnt/hdd/services/immich/` |
+| secret paths | ✔ resolve to `/home/shelaria/box/server/immich/secrets/…` on the server |
+| `PG_VERSION` | ✔ `14` — matches the `postgres:14-vectorchord` image |
+| database dir ownership | ✔ `drwx------ 999 999` — exactly what postgres demands |
+| library size | ✔ `75G` |
+
+**`create_host_path: true` — the safety net this step exists for.** `docker
+compose config` prints that on every bind mount; it's compose's default. it
+means **a wrong path is not an error** — docker silently creates an empty
+root-owned directory, postgres finds it empty and runs `initdb`, and you get a
+pristine blank immich while the real data sits untouched elsewhere. confusing
+rather than destructive, but it's precisely why the paths get eyeballed *before*
+`up -d` rather than after.
+
+**the library dir is `drwxr-xr-x` owned by `0 0` (root:root)**, while the
+database dir is `999 999`. immich-server must *write* to the library — the
+permissions question first raised in feb 2026. **partially settled by step 7a:
+immich booted and reads the library fine, so read access is confirmed
+empirically. write access remains unproven until a fresh upload succeeds
+(step 7c).** the likely explanation is that the immich-server image runs as root
+inside the container with no user-namespace remapping, so container-root ==
+host-root. confirm with:
 
 ```bash
-cd ~/path/to/repo/immich
+docker image inspect <immich-server-image> --format '{{.Config.User}}'   # empty = root
+```
+
+the empirical test is a fresh upload (step 7c). if uploads fail with permission
+errors, this is why.
+
+**⚠️ the cached images are untagged.** the runbook records the v1.138.0 images as
+`TAG <none>` (swarm pulled them by digest), but the compose file asks for them
+**by tag**. so `up -d` will not find them locally and will pull from ghcr.io
+instead — which defeats the point of phase A ("the exact image already on this
+box, guaranteed compatible, no network needed"). **tag them before booting**, per
+the section above; it's not just prune-protection, it's what makes the local
+copy get used.
+
+---
+
+the commands, for re-running:
+
+```bash
+cd ~/box/server/immich
 docker compose config          # renders the file; catches bad paths/env before anything runs
 
 # guard against booting onto an empty/wrong path (wouldn't delete anything,
@@ -178,7 +354,32 @@ ls -ln /mnt/hdd/services/immich/database | head -3   # note numeric uid — shou
 
 note the `sudo` on the PG_VERSION test — see the step 3 gotcha. and `IMMICH_VERSION` must read `v1.138.0`, **not** `release` — see "the version situation" above.
 
-## step 7a — phase A: boot the version that matches the database
+## step 7a — phase A: boot the version that matches the database — ✔ DONE (2026-08-16)
+
+**RESULT: immich is running again.** first successful boot since ~sept 2025 —
+roughly eleven months down. it came up on plain compose, on bind mounts, on the
+14tb drive, with file-based secrets.
+
+**what this proves, and it is the whole point of phase A:** the storage migration
+is *correct*, not merely plausible. the compose conversion, the bind mounts, the
+file secrets, and the february hdd copy are all validated at once by the
+application booting against them. no rsync check could establish that — `0 files
+to transfer` proves bytes match, but a running immich reading its own database
+proves the data is **valid**.
+
+**it also settles the library permissions question, halfway.** the library dir is
+`drwxr-xr-x` root:root and immich reads it fine — so *read* access is confirmed
+empirically. **write access is still unproven** until a fresh upload succeeds
+(step 7c). if uploads fail with permission errors, that's the cause.
+
+⚠️ **still to confirm: did the cached images get used, or pulled?** if the
+untagged `v1.138.0` images weren't tagged before `up -d`, compose pulled them
+from ghcr.io instead. same version either way, so no harm done — but **the local
+images still need tagging before any `docker system prune`**, or the only offline
+copy of the version matching this database is lost. check with
+`docker image ls | grep -E 'immich|postgres'`.
+
+---
 
 ```bash
 docker compose up -d

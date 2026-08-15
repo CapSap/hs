@@ -28,6 +28,11 @@ truth. run it, read the output, write the facts underneath. keep it secret-free
 > ✔ **also verified:** identity · docker ground-truth. **every section in this
 > file is now checked against the live box. no ⚠️ claims remain.**
 >
+> **update (2026-08-16 session):** two sections added — **volumes** and **the git
+> checkout on the server** — both verified live. the storage facts above were
+> spot-checked and still hold: the three immich volumes remain byte-identical
+> twins of the hdd copy (rsync dry-run, 0 files to transfer on all three).
+>
 > the ⚠️ facts were written from memory in the old handover docs, not re-derived
 > on this machine. run each section's command to confirm (and fix) them, then
 > drop the ⚠️.
@@ -409,3 +414,65 @@ what this tells us:
   `container_name: immich_redis` / `immich_postgres` / `immich_server` /
   `immich_machine_learning`; the old ones all carry the `.1.<taskID>` suffix, so
   the strings differ and `docker compose up -d` won't hit "name already in use".
+
+### volumes
+
+```
+docker volume ls
+```
+
+**findings:** ✔ verified 2026-08-16
+
+| volume | what it is |
+|---|---|
+| `immich_immich-library` | the photos, ~75G — **the pristine second copy** |
+| `immich_immich-database` | the postgres cluster, 354M |
+| `immich_model-cache` | ml model cache, 802M |
+| `portainer_portainer_data` | portainer's own state, from the swarm era |
+| `b66ba32a2fc3…` (64 hex) | **an anonymous volume** |
+
+- **the doubled `immich_immich-` prefix is not a typo.** the stack was named
+  `immich` and docker prepends the project name to whatever the compose file
+  declared (`immich-library`, `immich-database`, `model-cache`) — so two got
+  doubled and one didn't. these names cannot be guessed; always `docker volume ls`.
+- **the 64-hex name means an anonymous volume** — docker generates one when a
+  container declares a volume that nothing maps to a name. nothing references it,
+  which makes anonymous volumes the classic way disk space leaks on a docker
+  host. worth identifying before step 8 reclaiming.
+- ⚠️ **these three immich volumes are currently "unused"**, so
+  `docker volume prune` or `docker system prune --volumes` would delete all of
+  them. they are the only second copy of the photos until backups exist. use
+  explicit `docker volume rm <name>` and nothing else.
+
+---
+
+## the git checkout on the server
+
+not a hardware fact, but it cost real time in august 2026 by being unrecorded.
+
+```
+cd ~/box && git status && git log --oneline -1 && git branch -vv
+```
+
+**findings:** ✔ verified 2026-08-16
+
+- **location: `/home/shelaria/box`** — matches `REMOTE_REPO_PATH` in the
+  desktop's `deploy.env`
+- **remote: `https://github.com/CapSap/hs.git`, branch `master`**
+- **it had NO upstream tracking configured** until 2026-08-16. it was found 12
+  commits behind (`29a812f`, july 20) while `git status` reported only *"nothing
+  to commit, working tree clean"* — **no "your branch is behind" line, because
+  with no upstream there is nothing to compare against.**
+- **why:** `deploy.sh:72-76` bootstraps with `git init` + `git remote add` +
+  `git pull origin master`. **`git clone` configures branch tracking; that
+  sequence does not.** fixed with
+  `git branch --set-upstream-to=origin/master master`. re-apply if the checkout
+  is ever recreated — or just use `git clone`.
+- **`git fetch` never moves your branch**, it only updates the `origin/*` refs.
+  `git pull` = `fetch` + `merge`. running them separately, with
+  `git merge --ff-only`, is the safer habit — `--ff-only` refuses rather than
+  inventing a merge commit.
+- **git does not move gitignored files.** the reorg pull relocated everything
+  tracked out of `~/box/immich/` but left the gitignored `secrets/` behind,
+  orphaning a second copy of the db credentials at a dead path. removed after
+  proving it identical with `diff -r`. expect this whenever a reorg lands.
