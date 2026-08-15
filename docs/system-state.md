@@ -1,5 +1,9 @@
 # system state — ground-truth facts about this server
 
+**scope: the server (`shelaria-s`) only.** the desktop (`sheelah-d`) is separate
+hardware with a separate disk layout — plain partitions, no LVM, its own backup
+hdd. nothing below applies to it. its counterpart file is `desktop-state.md`.
+
 **what this file is:** the literal, current state of the machine, re-derived by
 investigating the live server (not copied from anywhere). exact sizes, device
 names, UUIDs, the VG name, the username, mount points, the docker data-root.

@@ -1,5 +1,13 @@
 # backup software decision (april 2026)
 
+> **⚠️ not yet carried out — and reality diverged (noted july 2026).** the desktop
+> was set up in **january**, three months *before* this decision, using **borg**,
+> and now holds a working verified 195G borg repo. restic and backrest are
+> installed on neither machine, and none of the four repos below exist. the paths
+> here (`/mnt/backup/restic/…`) were never created. see the "divergence from the
+> backup decision doc" section of `desktop-state.md` before acting on this file —
+> the choice is worth reopening, not mechanically executing.
+
 ## tl;dr
 
 going with **restic + backrest** for backups.
